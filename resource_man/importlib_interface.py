@@ -4,32 +4,46 @@ import contextlib
 import inspect
 from pathlib import Path
 
-USING_IMPORTLIB = False
-USING_IMPORTLIB_RESOURCES = False
-USING_RESOURCE_MAN = False
+files = None
+as_file = None
+read_text = None
+read_binary = None
+contents = None
+is_resource = None
+Traversable = Path
 
+READ_API = 'resource_man'
+FILES_API = 'resource_man'
+
+# Try reading imports
 try:
-    from importlib.resources import files, as_file, read_text, read_binary, contents, is_resource
+    from importlib.resources import contents, is_resource, read_binary, read_text
     from importlib.abc import Traversable
-    USING_IMPORTLIB = True
+    READ_API = 'importlib.resources'
 except (ImportError, Exception):
-    try:
-        from importlib_resources import files, as_file, read_text, read_binary, contents, is_resource
-        from importlib_resources.abc import Traversable
-        USING_IMPORTLIB_RESOURCES = True
-    except (ImportError, Exception):
-        files = None
-        as_file = None
-        read_text = None
-        read_binary = None
-        contents = None
-        is_resource = None
-        Traversable = Path
+    pass  # DO NOT USE importlib_resources! It does not work with PyInstaller. Throws Can't open orphan path error!
+    # try:
+    #     from importlib_resources import contents, is_resource, read_binary, read_text
+    #     from importlib_resources.abc import Traversable
+    #     READ_API = 'importlib_resources'
+    # except (ImportError, Exception):
+    #     pass
+
+# Try files imports
+try:
+    from importlib.resources import files, as_file
+    FILES_API = 'importlib.resources'
+except (ImportError, Exception):
+    pass  # DO NOT USE importlib_resources! It does not work with PyInstaller. Throws Can't open orphan path error!
+    # try:
+    #     from importlib_resources import files, as_file
+    #     FILES_API = 'importlib_resources'
+    # except (ImportError, Exception):
+    #     pass
 
 
 __all__ = [
-    'USING_IMPORTLIB', 'USING_IMPORTLIB_RESOURCES', 'USING_RESOURCE_MAN', 'Traversable',
-    'files', 'as_file', 'read_binary', 'read_text', 'contents', 'is_resource',
+    'READ_API', 'FILES_API', 'Traversable', 'contents', 'is_resource', 'read_binary', 'read_text', 'files', 'as_file',
     'rsc_files', 'rsc_as_file', 'rsc_read_binary', 'rsc_read_text', 'rsc_contents', 'rsc_is_resource'
     ]
 
@@ -124,11 +138,12 @@ def rsc_is_resource(package, name):
     return path.is_file()
 
 
-if files is None:
-    files = rsc_files
-    as_file = rsc_as_file
+if read_text is None:
     read_text = rsc_read_text
     read_binary = rsc_read_binary
     contents = rsc_contents
     is_resource = rsc_is_resource
-    USING_RESOURCE_MAN = True
+
+if files is None:
+    files = rsc_files
+    as_file = rsc_as_file

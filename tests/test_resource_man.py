@@ -26,17 +26,17 @@ def test_as_file():
     from resource_man import files, as_file, rsc_files, rsc_as_file
 
     with as_file(files('check_lib').joinpath('rsc.txt')) as filename:
-        assert Path(filename) == Path('check_lib/rsc.txt').absolute(), Path(filename)
+        assert Path(filename) == Path('test_lib/check_lib/rsc.txt').absolute(), Path(filename)
 
     with as_file(files('check_lib.check_sub').joinpath('rsc2.txt')) as filename:
-        assert Path(filename) == Path('check_lib/check_sub/rsc2.txt').absolute(), Path(filename)
+        assert Path(filename) == Path('test_lib/check_lib/check_sub/rsc2.txt').absolute(), Path(filename)
 
     # This library
     with rsc_as_file(rsc_files('check_lib').joinpath('rsc.txt')) as filename:
-        assert Path(filename) == Path('check_lib/rsc.txt').absolute(), Path(filename)
+        assert Path(filename) == Path('test_lib/check_lib/rsc.txt').absolute(), Path(filename)
 
     with rsc_as_file(rsc_files('check_lib.check_sub').joinpath('rsc2.txt')) as filename:
-        assert Path(filename) == Path('check_lib/check_sub/rsc2.txt').absolute(), Path(filename)
+        assert Path(filename) == Path('test_lib/check_lib/check_sub/rsc2.txt').absolute(), Path(filename)
 
 
 def test_read_text():
@@ -58,6 +58,7 @@ def test_read_text():
     txt = rsc_read_text('check_lib.check_sub', 'rsc2.txt')
     expected = 'rsc2.txt'
     assert txt == (expected + '\n') or txt == (expected + '\r\n'), txt
+
 
 def test_read_binary():
     from resource_man import read_binary, rsc_read_binary

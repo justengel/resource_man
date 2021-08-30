@@ -2,10 +2,10 @@ import os
 import types
 import contextlib
 from .importlib_interface import \
-    USING_IMPORTLIB, USING_IMPORTLIB_RESOURCES, USING_RESOURCE_MAN, Traversable, \
-    files, as_file, read_binary, read_text, contents, is_resource
-from .interface import ResourceNotAvailable, Resource, register, has_resource, get_resources, get_resource, \
-    get_binary, get_text
+    READ_API, FILES_API, Traversable, contents, is_resource, read_binary, read_text, files, as_file
+from .interface import \
+    ResourceNotAvailable, Resource, ResourceManager, get_global_manager, set_global_manager, temp_manager, \
+    register, has_resource, get_resources, get_resource, get_binary, get_text
 try:
     from importlib.machinery import SOURCE_SUFFIXES
 except (ImportError, Exception):
@@ -13,18 +13,42 @@ except (ImportError, Exception):
 
 
 __all__ = [
-    'collect_datas', 'EXCLUDE_EXT', 'SOURCE_SUFFIXES',
-    'USING_IMPORTLIB', 'USING_IMPORTLIB_RESOURCES', 'USING_RESOURCE_MAN', 'Traversable',
-    'files', 'as_file', 'read_binary', 'read_text', 'contents', 'is_resource',
-    'ResourceNotAvailable', 'Resource', 'register', 'has_resource', 'get_resources', 'get_resource',
-    'get_binary', 'get_text'
+    'registered_datas', 'find_datas', 'EXCLUDE_EXT', 'SOURCE_SUFFIXES',
+
+    'READ_API', 'FILES_API', 'Traversable', 'contents', 'is_resource', 'read_binary', 'read_text', 'files', 'as_file',
+
+    'ResourceNotAvailable', 'Resource', 'ResourceManager', 'get_global_manager', 'set_global_manager', 'temp_manager',
+    'register', 'has_resource', 'get_resources', 'get_resource', 'get_binary', 'get_text'
     ]
+
+
+def registered_datas(resource_manager=None):
+    """Return a list of datas that were registered.
+
+    Args:
+        resource_manager (ResourceManager)[None]: Resource manger to use. If None use default global ResourceManager.
+
+    Returns:
+        datas (list): List of (existing file path, rel install path).
+    """
+    if resource_manager is None:
+        resource_manager = get_global_manager()
+
+    datas = []
+
+    for resource in resource_manager.get_resources():
+        if resource.is_resource():
+            with resource.as_file() as rsc_file:
+                data = (os.path.relpath(str(rsc_file)), os.path.dirname(resource.get_package_path()))
+                datas.append(data)
+
+    return datas
 
 
 EXCLUDE_EXT = SOURCE_SUFFIXES + ['.pyc', '.pyd']
 
 
-def collect_datas(package, exclude_ext=None, **kwargs):
+def find_datas(package, exclude_ext=None, **kwargs):
     """Collect data files for pyinstaller.
 
     Args:
@@ -63,8 +87,12 @@ def collect_datas(package, exclude_ext=None, **kwargs):
                 elif path.suffix not in exclude_ext:
                     # Assume this is a resource.
                     with as_file(path) as filename:
+                        try:
+                            filename = str(filename.resolve())
+                        except (AttributeError, Exception):
+                            pass
                         relpath = os.path.join(pkg_name, os.path.relpath(filename, toplvl_filename))
-                        data = (str(filename), os.path.dirname(relpath))
+                        data = (filename, os.path.dirname(relpath))
                         if data not in datas:
                             datas.append(data)
 
