@@ -9,24 +9,27 @@ Standard Resource Functions
   * files - importlib.resources files this function is the standard for retrieving resources for Python 3.9+
   * as_file - context manager for retrieving a true filepath for Python 3.9+.
   * read_binary - Return the bytes found in the package with the given basename.
-  * *read_text* - Return the text found in the pakcage with the given basename.
+  * read_text - Return the text found in the pakcage with the given basename.
   * contents - Return an iterable of basenames in the given package.
   * is_resource - Return if the given package, basename exists.
 
 Custom Helpers
-  * register - Register a package and basename to an identifier. This can be overridden and used like a theme.
-  * has_resource - Return if the given identifier has a registered resource.
-  * get_resources - Return a dictionary of {identifier: Resource(package, name)}
-  * get_resource - Return the Resource object for the given identifier, fallback, or default value.
+  * clear - clear all registered resources.
+  * register - Register a package and basename.
+  * register_directory - Register the contents of a package directory.
+  * unregister - Remove a resource from the registration.
+  * has_resource - Return if the given resource, package_path, or alias has a registered resource.
+  * get_resources - Return a list of Resources. If multiple Resources register the same alias the last one will be used.
+  * get_resource - Return the Resource object for the given alias, fallback alias, or default value.
   * get_binary - Return the binary data read from the found resource.
-  * get_text - Return the text data read from teh found resource.
+  * get_text - Return the text data read from the found resource.
 
 
 Resource Man Example
 ====================
 
-Register and use identifiers. This example requires that the file exists.
-If you use PyInstaller to make an executable "mylib/actions/edit-cut.png" need to be included in datas.
+Register resources. This example requires that the file exists.
+If you use PyInstaller to make an executable "mylib/actions/edit-cut.png" needs to be included in datas.
 This should also work if the resource is bundled in a zip file according to some of the Python documentation.
 
 .. code-block:: python
@@ -39,9 +42,9 @@ This should also work if the resource is bundled in a zip file according to some
     #         actions/
     #             __init__.py
     #             edit-cut.png
-    import resource_man
+    import resource_man as rsc
 
-    resource_man.register('edit-cut', 'mylib.actions', 'edit-cut.png')
+    rsc.register('mylib.actions', 'edit-cut.png', alias='edit-cut')
 
     if __name__ == '__main__':
         edit_cut_bin = resource_man.get_binary('edit-cut')
@@ -53,14 +56,28 @@ Then you have access to all resources on import.
 .. code-block:: python
 
     # mylib/actions/__init__.py
-    import resource_man
+    import resource_man as rsc
 
-    edit_cut = resource_man.register('edit-cut', 'mylib.actions', 'edit-cut.png')
+    EDIT_CUT = rsc.register('mylib.actions', 'edit-cut.png')
 
     if __name__ == '__main__':
-         edit_cut_bin = edit_cut.read_binary()
+         edit_cut_bin = EDIT_CUT.read_bytes()
 
     # Use with `import mylib.actions`
+
+Register directories by registering all objects
+
+.. code-block:: python
+
+    import resource_man as rsc
+
+    DIRECTORY = rsc.register_directory('check_lib.check_sub', extensions=['.txt', '.png'])
+
+    assert len(DIRECTORY) > 0
+    assert isinstance(DIRECTORY[0], rsc.Resource)
+
+    for resource in DIRECTORY:
+        print(resource)
 
 
 importlib.resources Example
@@ -77,8 +94,7 @@ Filenames still have some support with importlib.resources, but it must be used 
     # File Structure:
     #     my_sdl/
     #         sdl2_dll_path/
-    #             # __init__.py was required for pkg_resources. Do not know if it is still needed.
-    #             __init__.py
+    #             __init__.py  # Is probably still required. Was required for pkg_resources
     #             SDL2.dll
     #         __init__.py
     #         my_interface.py
@@ -89,7 +105,7 @@ Filenames still have some support with importlib.resources, but it must be used 
     # ".sdl2_dll_path" would require __init__.py
     binary = files('my_sdl.sdl2_dll_path').joinpath('SDL2.dll').read_binary()
 
-    with as_file(files('my_sdl').joinpath('sdl2_dll_path/SDL2.dll')) as sdl_path:
+    with as_file(files('my_sdl.sdl2_dll_path').joinpath('SDL2.dll')) as sdl_path:
         os.environ.setdefault('PYSDL2_DLL_PATH', os.path.dirname(str(sdl_path)))
         import sdl2
 
@@ -175,11 +191,12 @@ Use `resource_man` to register resources when the file is imported.
     #        check_sub/
     #            __init__.py
     #            edit-cut.png
-    from resource_man.qt import register, get_binary, read_binary, load_resource, ResourceNotAvailable
+    import resource_man.qt as rsc
 
     # Register on import outside of main
-    register('edit-cut', 'check_lib.check_sub', 'edit-cut.png')
-    register('document-new.png', 'check_lib.check_sub', 'document-new.png')
+    rsc.register('check_lib.check_sub', 'edit-cut.png', alias='edit-cut')
+    DOCUMENT_NEW = rsc.register('check_lib.check_sub', 'document-new.png')  # QFile name is ":/check_lib/check_sub/document-new.png"
+    RSC2 = rsc.register('check_lib.check_sub', 'rsc2.txt', ...)  # ... uses name as alias ("rsc2.txt")
 
 After registering, `resource_man` can create the list of resources in a .qrc file.
 
@@ -198,7 +215,8 @@ This creates a file that looks like.
     <!DOCTYPE RCC><RCC version="1.0">
     <qresource>
         <file alias="edit-cut">check_lib\check_sub\edit-cut.png</file>
-        <file alias="document-new.png">check_lib\check_sub\document-new.png</file>
+        <file>check_lib\check_sub\document-new.png</file>
+        <file alias="rsc2.txt">check_lib\check_sub\rsc2.txt</file>
     </qresource>
     </RCC>
 
@@ -257,7 +275,7 @@ Full Example
 
 The *resource_man* library includes a QIcon and QPixmap class to use registered resources.
 This QIcon and QPixmap can take in binary data as the first argument to create the icon.
-This QIcon and QPixmap can also take the registered identifier.
+This QIcon and QPixmap can also take the registered alias.
 This library uses *QtPy* to support PySide or PyQt.
 
 
@@ -272,32 +290,45 @@ This library uses *QtPy* to support PySide or PyQt.
     #             __init__.py
     #             edit-cut.png
     #             document-new.png
-    import check_lib.check_sub  # Must import packages with subpackages that use importlib.resources
+    import check_lib.check_sub
     from qtpy import QtWidgets, QtCore
-    from resource_man.qt import QPixmap, QIcon, register, load_resource, \
-        files, ResourceNotAvailable, get_binary, read_binary
+    import resource_man.qt as rsc
 
 
     # Register on import outside of main
-    register('edit-cut', 'check_lib.check_sub', 'edit-cut.png')
-    register('document-new.png', 'check_lib.check_sub', 'document-new.png')
+    RSC = rsc.register('check_lib', 'rsc.txt', ...)  # ... uses name as alias ("rsc.txt")
+    RSC2 = rsc.register('check_lib.check_sub', 'rsc2.txt', ...)  # ... uses name as alias ("rsc2.txt")
+    EDIT_CUT = rsc.register('check_lib.check_sub', 'edit-cut.png', alias='edit-cut')
+    DOCUMENT_NEW = rsc.register('check_lib.check_sub', 'document-new.png')  # QFile ":/check_lib/check_sub/document-new.png"
 
 
     if __name__ == '__main__':
         app = QtWidgets.QApplication([])
 
         # Load the Qt RCC after QApplication
-        success = load_resource()
+        success = rsc.load_resource()
 
         widg = QtWidgets.QWidget()
         widg.setLayout(QtWidgets.QVBoxLayout())
 
-        # Use resource_man register identifier
-        btn = QtWidgets.QPushButton(QIcon('edit-cut'), 'resource_man identifier "edit-cut"', None)
+        # Resource file (Must be compiled and loaded)
+        file = QtCore.QFile(':/rsc2.txt')
+        if not file.open(QtCore.QIODevice.ReadOnly | QtCore.QIODevice.Text):
+            text = 'File Not Available'
+        else:
+            text = file.readAll().data().decode('utf-8')
+            file.close()
+        msg = 'READ FILE\n' \
+              'File Path = {}\nread_text = {}\nQFile :/rsc2.txt = {}'.format(str(RSC2), repr(RSC2.read_text()), repr(text))
+        lbl = QtWidgets.QLabel(msg)
+        widg.layout().addWidget(lbl)
+
+        # Use resource_man register alias
+        btn = QtWidgets.QPushButton(rsc.QIcon('edit-cut'), 'resource_man alias "edit-cut"', None)
         widg.layout().addWidget(btn)
 
         # Use Qt QResource alias name
-        btn = QtWidgets.QPushButton(QIcon(':/edit-cut'), 'QFile alias ":/edit-cut"', None)
+        btn = QtWidgets.QPushButton(rsc.QIcon(':/edit-cut'), 'QFile alias ":/edit-cut"', None)
         widg.layout().addWidget(btn)
 
         # Use Qt QResource File name - DOES NOT WORK! CAN ONLY USE QRC ALIAS IDENTIFIER!
@@ -305,16 +336,16 @@ This library uses *QtPy* to support PySide or PyQt.
         #                                   'QFile name ":\\check_lib\\check_sub\\edit-cut.png"', None)
         # widg.layout().addWidget(btn)
 
-        # Use resource_man register identifier
-        btn = QtWidgets.QPushButton(QIcon('document-new.png'), 'resource_man identifier "document-new.png"', None)
+        # Use resource_man register alias
+        btn = QtWidgets.QPushButton(rsc.QIcon(DOCUMENT_NEW), 'resource_man object DOCUMENT_NEW', None)
         widg.layout().addWidget(btn)
 
         # Use Qt QResource File name alias
-        btn = QtWidgets.QPushButton(QIcon(':/document-new.png'), 'QFile alias ":/document-new.png"', None)
+        btn = QtWidgets.QPushButton(rsc.QIcon(':/check_lib/check_sub/document-new.png'), 'QFile alias ":/check_lib/check_sub/document-new.png"', None)
         widg.layout().addWidget(btn)
 
         # Use Qt QResource File name alias - DOES NOT WORK! CAN ONLY USE QRC ALIAS IDENTIFIER!
-        # btn = QtWidgets.QPushButton(QIcon(':/check_lib/check_sub/document-new.png'),
+        # btn = QtWidgets.QPushButton(rsc.QIcon(':/check_lib/check_sub/document-new.png'),
         #                                   '":/check_lib/check_sub/document-new.png"', None)
         # widg.layout().addWidget(btn)
 
@@ -322,25 +353,25 @@ This library uses *QtPy* to support PySide or PyQt.
         # you need to include the .png files as data files in PyInstaller
         # you also need to import the package (`import check_lib.check_sub`) for PyInstaller to include the package.
 
-        # resource_man binary (resource_man register support)
+        # resource_man binary (resource_man register alias support)
         try:
-            btn_binary_resource_man = QtWidgets.QPushButton(QIcon(get_binary('edit-cut')), 'resource_man get_binary("edit-cut")')
+            btn_binary_resource_man = QtWidgets.QPushButton(rsc.QIcon(rsc.get_binary('edit-cut')), 'resource_man get_binary("edit-cut")')
             widg.layout().addWidget(btn_binary_resource_man)
-        except (ResourceNotAvailable, OSError) as err:
+        except (rsc.ResourceNotAvailable, OSError, TypeError) as err:
             pass
 
         # importlib.resources binary
         try:
-            btn_binary_importlib = QtWidgets.QPushButton(QIcon(read_binary('check_lib.check_sub', 'edit-cut.png')),
+            btn_binary_importlib = QtWidgets.QPushButton(rsc.QIcon(rsc.read_binary('check_lib.check_sub', 'edit-cut.png')),
                                                          'importlib.resources read_binary("check_lib.check_sub", "edit-cut.png")')
             widg.layout().addWidget(btn_binary_importlib)
-        except (ResourceNotAvailable, OSError) as err:
+        except (rsc.ResourceNotAvailable, OSError, TypeError) as err:
             pass
         try:
             lbl = QtWidgets.QLabel()
-            lbl.setPixmap(QPixmap(files('check_lib.check_sub').joinpath('edit-cut.png')).scaled(24, 24, QtCore.Qt.KeepAspectRatio))
+            lbl.setPixmap(rsc.QPixmap(rsc.files('check_lib.check_sub').joinpath('edit-cut.png')).scaled(24, 24, QtCore.Qt.KeepAspectRatio))
             widg.layout().addWidget(lbl)
-        except (ResourceNotAvailable, OSError) as err:
+        except (rsc.ResourceNotAvailable, OSError, TypeError) as err:
             pass
 
         widg.show()

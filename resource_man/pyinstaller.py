@@ -1,15 +1,18 @@
 import os
 import types
 import contextlib
-from .importlib_interface import \
-    READ_API, FILES_API, Traversable, contents, is_resource, read_binary, read_text, files, as_file
-from .interface import \
-    ResourceNotAvailable, Resource, ResourceManager, get_global_manager, set_global_manager, temp_manager, \
-    register, has_resource, get_resources, get_resource, get_binary, get_text
+
 try:
     from importlib.machinery import SOURCE_SUFFIXES
 except (ImportError, Exception):
     SOURCE_SUFFIXES = ['.py', '.pyw', '.py2', '.py3']
+
+from resource_man.__meta__ import version as __version__
+from resource_man.importlib_interface import \
+    READ_API, FILES_API, Traversable, contents, is_resource, read_binary, read_text, files, as_file
+from resource_man.interface import \
+    ResourceNotAvailable, Resource, ResourceManager, get_global_manager, set_global_manager, temp_manager, \
+    clear, register, register_directory, unregister, has_resource, get_resources, get_resource, get_binary, get_text
 
 
 __all__ = [
@@ -18,7 +21,9 @@ __all__ = [
     'READ_API', 'FILES_API', 'Traversable', 'contents', 'is_resource', 'read_binary', 'read_text', 'files', 'as_file',
 
     'ResourceNotAvailable', 'Resource', 'ResourceManager', 'get_global_manager', 'set_global_manager', 'temp_manager',
-    'register', 'has_resource', 'get_resources', 'get_resource', 'get_binary', 'get_text'
+    'clear', 'register', 'register_directory', 'unregister', 'has_resource', 'get_resources', 'get_resource',
+    'get_binary', 'get_text',
+    '__version__'
     ]
 
 
@@ -39,7 +44,7 @@ def registered_datas(resource_manager=None):
     for resource in resource_manager.get_resources():
         if resource.is_resource():
             with resource.as_file() as rsc_file:
-                data = (os.path.relpath(str(rsc_file)), os.path.dirname(resource.get_package_path()))
+                data = (os.path.relpath(str(rsc_file)), os.path.dirname(resource.package_path))
                 datas.append(data)
 
     return datas

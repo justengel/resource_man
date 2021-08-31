@@ -6,5 +6,5 @@ from .importlib_interface import \
 
 from .interface import \
     ResourceNotAvailable, Resource, ResourceManager, get_global_manager, set_global_manager, temp_manager, \
-    register, has_resource, get_resources, get_resource, get_binary, get_text
+    clear, register, register_directory, unregister, has_resource, get_resources, get_resource, get_binary, get_text
 

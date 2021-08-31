@@ -1,3 +1,4 @@
+import os
 import copy
 import contextlib
 from .importlib_interface import Traversable, contents, is_resource, read_binary, read_text, files, as_file
@@ -5,7 +6,9 @@ from .importlib_interface import Traversable, contents, is_resource, read_binary
 
 __all__ = [
     'ResourceNotAvailable', 'Resource', 'ResourceManager', 'get_global_manager', 'set_global_manager', 'temp_manager',
-    'register', 'has_resource', 'get_resources', 'get_resource', 'get_binary', 'get_text']
+    'clear', 'register', 'register_directory', 'unregister', 'has_resource', 'get_resources', 'get_resource',
+    'get_binary', 'get_text'
+    ]
 
 
 class MISSING:
@@ -17,16 +20,16 @@ class ResourceNotAvailable(Exception):
 
 
 class Resource:
-    def __init__(self, package, name, identifier=None, **kwargs):
+    def __init__(self, package, name, alias=None, **kwargs):
         """Initialize the resource object.
 
         Args:
             package (str): Package or module name where the resource can be found (EX: "mylib.mysubpkg")
             name (str): Name of the resource (EX: "myimg.png").
-            identifier (str)[None]: Shortcut identifier for the resource. This is the same identifier used in register.
+            alias (str)[None]: Shortcut alias name identifer for the resource.
             **kwargs (dict): Dictionary of keyword arguments to set as resource attributes.
         """
-        self._identifier = identifier
+        self.raw_alias = alias
         self.package = package
         self.name = name
 
@@ -37,20 +40,26 @@ class Resource:
             except (AttributeError, TypeError, ValueError):
                 pass
 
-    def get_package_path(self):
+    @property
+    def package_path(self):
         """Return the package path."""
         return '/'.join((self.package.replace('.', '/'), self.name))
 
     @property
-    def identifier(self):
-        """Return the registered resource identifier."""
-        if self._identifier is None:
-            return self.get_package_path()
-        return self._identifier
+    def alias(self):
+        """Return the alias name identifier."""
+        if self.raw_alias is ...:
+            return self.name
+        elif self.raw_alias is None:
+            return self.package_path
+        return self.raw_alias
 
-    @identifier.setter
-    def identifier(self, value):
-        self._identifier = value
+    @alias.setter
+    def alias(self, value):
+        self.raw_alias = value
+
+    # Backwards compatibility support
+    identifier = alias
 
     def is_resource(self):
         return is_resource(self.package, self.name)
@@ -86,13 +95,35 @@ class Resource:
 
     def __eq__(self, other):
         if isinstance(other, str):
-            return other == self.identifier or other == self.get_package_path()
+            return other == self.alias or other == self.package_path
         return super().__eq__(other)
+
+    def __str__(self):
+        """Return the full string file path. I'm not sure if this will always work. "as_file" should be used."""
+        try:
+            filename = self.files()
+            try:
+                filename = filename.resolve()
+            except (AttributeError, OSError, Exception):
+                pass
+            return str(filename)
+        except (ResourceNotAvailable, OSError, TypeError, ValueError, Exception):
+            return self.package_path
+
+    def __repr__(self):
+        kwargs = {'cls': self.__class__.__name__, 'package': self.package, 'name': self.name, 'alias': self.alias}
+        if self.raw_alias:
+            return '{cls}(package={package}, name={name}, alias={alias})'.format(**kwargs)
+        else:
+            return '{cls}(package={package}, name={name})'.format(**kwargs)
 
 
 class ResourceManager(list):
     def __getitem__(self, item):
-        for rsc in self:
+        if isinstance(item, int):
+            return super().__getitem__(item)
+
+        for rsc in reversed(self):
             if rsc == item:
                 return rsc
 
@@ -102,41 +133,121 @@ class ResourceManager(list):
         if isinstance(key, int):
             super().__setitem__(key, value)
             return
+        elif isinstance(key, Resource):
+            key = key.alias or key.package_path
 
         # Find the resource and replace the identifier
-        for rsc in self:
-            if rsc == value:
-                rsc.identifier = key
+        for i in reversed(range(len(self))):
+            rsc = self[i]
+            if rsc.alias == key:
+                super().__setitem__(i, value)
                 return
 
         # If not found add the resource to the list.
         self.append(value)
 
-    def register(self, identifier, package, name, **kwargs):
-        """Register a resource to an identifier."""
-        rsc = Resource(package, name, identifier=identifier, **kwargs)
+    def register(self, package, name, alias=None, **kwargs):
+        """Register a resource. You can optionally have an alias name identifier.
+        When using the alias the last resource registered with the same alias will be used.
+
+        Args:
+            package (str): Package name ('check_lib.check_sub')
+            name (str): Name of the resource ('edit-cut.png')
+            alias (str)[None]: Alias name identifier for quick access.
+            **kwargs (dict): Dictionary of keyword arguments to set as attributes to the resource.
+        """
+        rsc = Resource(package, name, alias=alias, **kwargs)
         self.append(rsc)
         return rsc
 
-    def has_resource(self, identifier):
-        """Return if the registered resource exists."""
-        return identifier in self
+    def register_directory(self, package, extensions=None, exclude=None, **kwargs):
+        """Register all items in a directory.
 
-    def get_resources(self):
-        """Return a list of registered resources."""
-        return copy.copy(self)
-
-    def get_resource(self, identifier, fallback=None, default=MISSING):
-        """Return the Resource object from the given identifier or default.
+        Note:
+            This does not register the __init__.py module.
 
         Args:
-            identifier (str): Identifier that has a registered resource
-            fallback (str)[None]: Fallback identifier if the given identifier was not registered.
-            default (object)[MISSING]: Default value to return if the identifier and fallback were not found.
+            package (str): Package name ('check_lib.check_sub')
+            extensions (list/str)[None]: List of extensions to register (".csv", ".txt", "" for "LICENSE" with no ext).
+                If None register all.
+            exclude (list/str)[None]: List of filenames to exclude.
+            **kwargs (dict): Dictionary of keyword arguments to set as attributes to the resource.
+
+        Returns:
+            directory (list): List of Resource objects that were registered.
+        """
+        if isinstance(extensions, str):
+            extensions = [extensions]
+        if exclude is None:
+            exclude = []
+        elif isinstance(exclude, str):
+            exclude = [exclude]
+
+        directory = []
+        for name in contents(package):
+            name = str(name)
+            ext = os.path.splitext(name)[-1]
+            if (name not in exclude) and (extensions is None or ext in extensions):
+                directory.append(self.register(package, name))
+
+        return directory
+
+    def unregister(self, rsc=None, name=None, alias=None):
+        """Unregister a resource.
+
+        Args:
+            rsc (str/Resource)[None]: Resource to unregister or package name (with name argument) or alias.
+            name (str)[None]: Required if package name given
+            alias (str)[None]: Alias name identifier to find. This may also be given as first argument.
+
+        Returns:
+            rsc (Resource): Resource that was found
+
+        Raises:
+            error (ResourceNotAvailable): Resource was not found!
+        """
+        if isinstance(rsc, str) and isinstance(name, str):
+            rsc = '/'.join((rsc.replace('.', '/'), name))
+        elif isinstance(alias, str):
+            rsc = alias
+
+        for i in reversed(range(len(self))):
+            resource = self[i]
+            if resource == rsc:
+                return self.pop(i)
+
+        raise ResourceNotAvailable('Resource not found! If "package" given then the "name" argument is required.')
+
+    def has_resource(self, rsc=None, name=None, alias=None):
+        """Return if the registered resource exists (this can be the alias, resource, or package_path."""
+        if isinstance(rsc, str) and isinstance(name, str):
+            rsc = '/'.join((rsc.replace('.', '/'), name))
+        elif isinstance(alias, str):
+            rsc = alias
+
+        return rsc in self
+
+    def get_resources(self):
+        """Return a list of registered resources.
+
+        If multiple resources have the same alias the last one will be used.
+        """
+        return copy.copy(self)
+
+    def get_resource(self, rsc, fallback=None, default=MISSING):
+        """Return the found Resource object from the given resource, fallback, or default value.
+
+        Args:
+            rsc (str/Resource): Alias name identifier, package path, or Resource object that has a registered resource
+            fallback (str)[None]: Fallback alias if the given alias was not registered.
+            default (object)[MISSING]: Default value to return if the alias and fallback were not found.
+
+        Returns:
+            rsc (Resource): The found Resource object.
         """
         # Try finding the identifier
         try:
-            return self[identifier]
+            return self[rsc]
         except KeyError:
             pass
 
@@ -150,33 +261,39 @@ class ResourceManager(list):
 
         # Check default
         if default is MISSING:
-            raise ResourceNotAvailable('Resource "{}" not found'.format(identifier))
+            raise ResourceNotAvailable('Resource "{}" not found'.format(rsc))
         return default
 
-    def get_binary(self, identifier, fallback=None, default=MISSING):
+    def get_binary(self, rsc, fallback=None, default=MISSING):
         """Return the binary data for the Resource object from the given identifier or default.
 
         Args:
-            identifier (str): Identifier that has a registered resource
-            fallback (str)[None]: Fallback identifier if the given identifier was not registered.
-            default (object)[MISSING]: Default value to return if the identifier and fallback were not found.
+            rsc (str/Resource): Alias name identifier, package path, or Resource object that has a registered resource
+            fallback (str)[None]: Fallback alias if the given alias was not registered.
+            default (object)[MISSING]: Default value to return if the alias and fallback were not found.
+
+        Returns:
+            data (bytes): Binary data that was read.
         """
-        rsc = self.get_resource(identifier, fallback, default)
+        rsc = self.get_resource(rsc, fallback, default)
         if isinstance(rsc, Resource):
             return rsc.read_binary()
         return rsc
 
-    def get_text(self, identifier, fallback=None, default=MISSING, encoding='utf-8', errors='strict'):
+    def get_text(self, rsc, fallback=None, default=MISSING, encoding='utf-8', errors='strict'):
         """Return the text data for the Resource object from the given identifier or default.
 
         Args:
-            identifier (str): Identifier that has a registered resource
-            fallback (str)[None]: Fallback identifier if the given identifier was not registered.
-            default (object)[MISSING]: Default value to return if the identifier and fallback were not found.
+            rsc (str/Resource): Alias name identifier, package path, or Resource object that has a registered resource
+            fallback (str)[None]: Fallback alias if the given alias was not registered.
+            default (object)[MISSING]: Default value to return if the alias and fallback were not found.
             encoding (str)['utf-8']: Encoding to convert binary data to text.
             errors (str)['strict']: Error handling code when converting the binary data to text.
+
+        Returns:
+            text (str): Text data that was read.
         """
-        rsc = self.get_resource(identifier, fallback, default)
+        rsc = self.get_resource(rsc, fallback, default)
         if isinstance(rsc, Resource):
             return rsc.read_text(encoding=encoding, errors=errors)
         return rsc
@@ -208,52 +325,112 @@ def temp_manager(manager):
         set_global_manager(old)
 
 
-def register(identifier, package, name, **kwargs):
-    """Register a resource to an identifier."""
-    return get_global_manager().register(identifier, package, name, **kwargs)
+def clear():
+    """Clear out all of the resources that are registered."""
+    get_global_manager().clear()
 
 
-def has_resource(identifier):
-    """Return if the registered resource exists."""
-    return get_global_manager().has_resource(identifier)
+def register(package, name, alias=None, **kwargs):
+    """Register a resource. You can optionally have an alias name identifier.
+    When using the alias the last resource registered with the same alias will be used.
+
+    Args:
+        package (str): Package name ('check_lib.check_sub')
+        name (str): Name of the resource ('edit-cut.png')
+        alias (str)[None]: Alias name identifier for quick access.
+        **kwargs (dict): Dictionary of keyword arguments to set as attributes to the resource.
+    """
+    return get_global_manager().register(package, name, alias=alias, **kwargs)
+
+
+def register_directory(package, extensions=None, exclude=None, **kwargs):
+    """Register all items in a directory.
+
+    Note:
+        This does not register the __init__.py module.
+
+    Args:
+        package (str): Package name ('check_lib.check_sub')
+        extensions (list/str)[None]: List of extensions to register (".csv", ".txt", "" for "LICENSE" with no ext).
+            If None register all.
+        exclude (list/str)[None]: List of filenames to exclude.
+        **kwargs (dict): Dictionary of keyword arguments to set as attributes to the resource.
+
+    Returns:
+        directory (list): List of Resource objects that were registered.
+    """
+    return get_global_manager().register_directory(package, extensions=extensions, exclude=exclude, **kwargs)
+
+
+def unregister(rsc=None, name=None, alias=None):
+    """Unregister a resource.
+
+    Args:
+        rsc (str/Resource)[None]: Resource to unregister or package name (with name argument) or alias.
+        name (str)[None]: Required if package name given
+        alias (str)[None]: Alias name identifier to find. This may also be given as first argument.
+
+    Returns:
+        rsc (Resource): Resource that was found
+
+    Raises:
+        error (ResourceNotAvailable): Resource was not found!
+    """
+    return get_global_manager().unregister(rsc=rsc, name=name, alias=alias)
+
+
+def has_resource(rsc=None, name=None, alias=None):
+    """Return if the registered resource exists (this can be the alias, resource, or package_path."""
+    return get_global_manager().has_resource(rsc=rsc, name=name, alias=alias)
 
 
 def get_resources():
-    """Return a list of registered resources."""
+    """Return a list of registered resources.
+
+    If multiple resources have the same alias the last one will be used.
+    """
     return get_global_manager().get_resources()
 
 
-def get_resource(identifier, fallback=None, default=MISSING):
-    """Return the Resource object from the given identifier or default.
+def get_resource(rsc, fallback=None, default=MISSING):
+    """Return the found Resource object from the given resource, fallback, or default value.
 
     Args:
-        identifier (str): Identifier that has a registered resource
-        fallback (str)[None]: Fallback identifier if the given identifier was not registered.
-        default (object)[MISSING]: Default value to return if the identifier and fallback were not found.
+        rsc (str/Resource): Alias name identifier, package path, or Resource object that has a registered resource
+        fallback (str)[None]: Fallback alias if the given alias was not registered.
+        default (object)[MISSING]: Default value to return if the alias and fallback were not found.
+
+    Returns:
+        rsc (Resource): The found Resource object.
     """
-    return get_global_manager().get_resource(identifier, fallback=fallback, default=default)
+    return get_global_manager().get_resource(rsc, fallback=fallback, default=default)
 
 
-def get_binary(identifier, fallback=None, default=MISSING):
+def get_binary(rsc, fallback=None, default=MISSING):
     """Return the binary data for the Resource object from the given identifier or default.
 
     Args:
-        identifier (str): Identifier that has a registered resource
-        fallback (str)[None]: Fallback identifier if the given identifier was not registered.
-        default (object)[MISSING]: Default value to return if the identifier and fallback were not found.
+        rsc (str/Resource): Alias name identifier, package path, or Resource object that has a registered resource
+        fallback (str)[None]: Fallback alias if the given alias was not registered.
+        default (object)[MISSING]: Default value to return if the alias and fallback were not found.
+
+    Returns:
+        data (bytes): Binary data that was read.
     """
-    return get_global_manager().get_binary(identifier, fallback=fallback, default=default)
+    return get_global_manager().get_binary(rsc, fallback=fallback, default=default)
 
 
-def get_text(identifier, fallback=None, default=MISSING, encoding='utf-8', errors='strict'):
+def get_text(rsc, fallback=None, default=MISSING, encoding='utf-8', errors='strict'):
     """Return the text data for the Resource object from the given identifier or default.
 
     Args:
-        identifier (str): Identifier that has a registered resource
-        fallback (str)[None]: Fallback identifier if the given identifier was not registered.
-        default (object)[MISSING]: Default value to return if the identifier and fallback were not found.
+        rsc (str/Resource): Alias name identifier, package path, or Resource object that has a registered resource
+        fallback (str)[None]: Fallback alias if the given alias was not registered.
+        default (object)[MISSING]: Default value to return if the alias and fallback were not found.
         encoding (str)['utf-8']: Encoding to convert binary data to text.
         errors (str)['strict']: Error handling code when converting the binary data to text.
+
+    Returns:
+        text (str): Text data that was read.
     """
-    return get_global_manager().get_text(identifier, fallback=fallback, default=default,
-                                         encoding=encoding, errors=errors)
+    return get_global_manager().get_text(rsc, fallback=fallback, default=default, encoding=encoding, errors=errors)

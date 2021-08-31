@@ -8,11 +8,12 @@ from contextlib import contextmanager
 from dynamicmethod import dynamicmethod
 from qtpy import API_NAME, QtCore, QtGui
 
+from resource_man.__meta__ import version as __version__
 from resource_man.importlib_interface import \
     READ_API, FILES_API, Traversable, contents, is_resource, read_binary, read_text, files, as_file
 from resource_man.interface import \
     ResourceNotAvailable, Resource, ResourceManager, get_global_manager, set_global_manager, temp_manager, \
-    register, has_resource, get_resources, get_resource, get_binary, get_text
+    clear, register, register_directory, unregister, has_resource, get_resources, get_resource, get_binary, get_text
 
 
 # Qt rcc compiler path
@@ -32,7 +33,9 @@ __all__ = [
     'READ_API', 'FILES_API', 'Traversable', 'contents', 'is_resource', 'read_binary', 'read_text', 'files', 'as_file',
 
     'ResourceNotAvailable', 'Resource', 'ResourceManager', 'get_global_manager', 'set_global_manager', 'temp_manager',
-    'register', 'has_resource', 'get_resources', 'get_resource', 'get_binary', 'get_text'
+    'clear', 'register', 'register_directory', 'unregister', 'has_resource', 'get_resources', 'get_resource',
+    'get_binary', 'get_text',
+    '__version__'
     ]
 
 
@@ -59,11 +62,10 @@ def get_file(name):
     # Try to create the icon from the registered resource name
     try:
         resource = get_resource(name)
-        rsc_name = ':/' + resource.identifier
+        rsc_name = resource.alias
         if QtCore.QFile(rsc_name).exists():
             return rsc_name
-
-        rsc_name = ':/' + resource.name
+        rsc_name = ':/' + resource.alias
         if QtCore.QFile(rsc_name).exists():
             return rsc_name
 
@@ -80,7 +82,7 @@ class QPixmap(QtGui.QPixmap):
 
     def __init__(self, *args, **kwargs):
         load_data = None
-        if len(args) >= 1 and isinstance(args[0], (str, bytes, Traversable)):
+        if len(args) >= 1 and isinstance(args[0], (Resource, str, bytes, Traversable)):
             # Try to find filename, Qt File, or importlib.resources read resource bytes.
             data_file = get_file(args[0])
             if isinstance(data_file, str):
@@ -107,7 +109,7 @@ class QIcon(QtGui.QIcon):
             if isinstance(args[0], str) and QIcon.hasThemeIcon(args[0]):
                 args = (QtGui.QIcon.fromTheme(args[0]),) + args[1:]
                 is_valid = True
-            elif isinstance(args[0], (str, bytes, Traversable)):
+            elif isinstance(args[0], (Resource, str, bytes, Traversable)):
                 # Try to find filename, Qt File, or importlib.resources read resource bytes.
                 data_file = get_file(args[0])
                 if isinstance(data_file, str):
@@ -151,11 +153,11 @@ def create_qrc(filename="resource_man_compiled_resources.qrc", prefix='', resour
     """Make a Qt RCC file.
 
     Note:
-        This creates a resource alias as the identifier.
+        This registers the resource with an alias shortcut identifier.
 
         .. code-block:: python
 
-            >>> resource_man.register('edit-cut', 'check_lib.check_sub', 'edit-cut.png')
+            >>> resource_man.register('check_lib.check_sub', 'edit-cut.png', alias='edit-cut')
 
         The alias can be used with QIcon(":/edit-cut")
 
@@ -164,7 +166,7 @@ def create_qrc(filename="resource_man_compiled_resources.qrc", prefix='', resour
 
             >>> import resource_man.qt as resource_man
             >>>
-            >>> resource_man.register('edit-cut', 'check_lib.check_sub', 'edit-cut.png')
+            >>> resource_man.register('check_lib.check_sub', 'edit-cut.png', 'edit-cut')
             >>>
             >>> resource_man.create_qrc()  # app_resources.qrc created
 
@@ -198,7 +200,7 @@ def create_qrc(filename="resource_man_compiled_resources.qrc", prefix='', resour
     for resource in resource_manager.get_resources():
         if resource.is_resource():
             with resource.as_file() as rsc_file:
-                text.append('\t<file alias="{}">{}</file>'.format(resource.identifier, os.path.relpath(str(rsc_file))))
+                text.append('\t<file alias="{}">{}</file>'.format(resource.alias, os.path.relpath(str(rsc_file))))
 
     text.append('</qresource>')
     text.append('</RCC>')
@@ -270,11 +272,11 @@ def create_compiled(filename="resource_man_compiled_resources.qrc", prefix='', m
     """Make a Qt RCC .qrc file, compile the Qt RCC file to a .py or .rcc file, and remove the unneeded QRC file.
 
     Note:
-        This creates a resource alias as the identifier.
+        This registers the resource with an alias shortcut identifier.
 
         .. code-block:: python
 
-            >>> resource_man.register('edit-cut', 'check_lib.check_sub', 'edit-cut.png')
+            >>> resource_man.register('check_lib.check_sub', 'edit-cut.png', 'edit-cut')
 
         The alias can be used with QIcon(":/edit-cut")
 
@@ -283,7 +285,7 @@ def create_compiled(filename="resource_man_compiled_resources.qrc", prefix='', m
 
             >>> import resource_man.qt as resource_man
             >>>
-            >>> resource_man.register('edit-cut', 'check_lib.check_sub', 'edit-cut.png')
+            >>> resource_man.register('check_lib.check_sub', 'edit-cut.png', 'edit-cut')
             >>>
             >>> resource_man.create_qrc()  # resource_man_compiled_resources.qrc created
             >>> resource_man.compile_qrc()  # resource_man_compiled_resources.py created

@@ -109,6 +109,68 @@ def test_is_resource():
     assert rsc_is_resource('check_lib.check_sub', 'rsc2.txt')
 
 
+def test_register():
+    import resource_man as rsc
+
+    rsc.clear()
+
+    RSC = rsc.register('check_lib', 'rsc.txt', ...)  # QFile ":/rsc.txt"
+    RSC2 = rsc.register('check_lib.check_sub', 'rsc2.txt', ...)  # QFile ":/rsc2.txt"
+    EDIT_CUT = rsc.register('check_lib.check_sub', 'edit-cut.png', alias='edit-cut')  # QFile ":/edit-cut"
+    DOC_NEW = rsc.register('check_lib.check_sub', 'document-new.png')  # QFile ":/check_lib/check_sub/document-new.png"
+
+    assert RSC in rsc.get_global_manager()
+    assert RSC2 in rsc.get_global_manager()
+    assert EDIT_CUT in rsc.get_global_manager()
+    assert DOC_NEW in rsc.get_global_manager()
+
+    assert rsc.has_resource(RSC)
+    assert rsc.has_resource(RSC2)
+    assert rsc.has_resource(EDIT_CUT)
+    assert rsc.has_resource(DOC_NEW)
+
+    assert rsc.has_resource('rsc.txt')
+    assert rsc.has_resource('check_lib', 'rsc.txt')
+    assert rsc.has_resource('rsc2.txt')
+    assert rsc.has_resource('check_lib.check_sub', 'rsc2.txt')
+    assert rsc.has_resource('edit-cut')
+    assert rsc.has_resource('check_lib.check_sub', 'edit-cut.png')
+    assert rsc.has_resource('check_lib/check_sub/document-new.png')
+    assert rsc.has_resource('check_lib.check_sub', 'document-new.png')
+
+    # Unregister by alias
+    rsc.unregister('edit-cut')
+    assert not rsc.has_resource('edit-cut')
+    rsc.register('check_lib.check_sub', 'edit-cut.png', alias='edit-cut')
+    assert rsc.has_resource('edit-cut')
+    rsc.unregister(alias='edit-cut')
+    assert not rsc.has_resource('edit-cut')
+
+    # Unregister by package, name
+    rsc.unregister('check_lib.check_sub', 'rsc2.txt')
+    assert not rsc.has_resource('check_lib.check_sub', 'rsc2.txt')
+
+    # Unregister package_path
+    rsc.unregister('check_lib/check_sub/document-new.png')
+    assert not rsc.has_resource('check_lib/check_sub/document-new.png')
+
+    # Unregister Resource object
+    rsc.unregister(RSC)
+    assert not rsc.has_resource('check_lib', 'rsc.txt')
+
+
+def test_register_directory():
+    import resource_man as rsc
+
+    directory = rsc.register_directory('check_lib.check_sub', extensions=['.txt', '.png'])
+
+    assert len(directory) > 0
+    assert isinstance(directory[0], rsc.Resource)
+    assert 'check_lib/check_sub/edit-cut.png' in directory
+    assert 'check_lib/check_sub/document-new.png' in directory
+    assert 'check_lib/check_sub/rsc2.txt' in directory
+
+
 if __name__ == '__main__':
     test_files()
     test_as_file()
@@ -116,5 +178,7 @@ if __name__ == '__main__':
     test_read_binary()
     test_contents()
     test_is_resource()
+    test_register()
+    test_register_directory()
 
     print('All tests passed successfully!')

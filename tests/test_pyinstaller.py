@@ -16,13 +16,13 @@ def test_registered_datas():
     import check_lib.check_sub
     from resource_man.pyinstaller import register, registered_datas
 
-    rsc = register('rsc.txt', 'check_lib', 'rsc.txt')
-    rsc2 = register('rsc2.txt', 'check_lib.check_sub', 'rsc2.txt')
+    rsc = register('check_lib', 'rsc.txt', ...)
+    rsc2 = register('check_lib.check_sub', 'rsc2.txt', 'rsc2.txt')
 
     datas = registered_datas()
 
-    assert (os.path.relpath(str(rsc.files())), os.path.dirname(rsc.get_package_path())) in datas
-    assert (os.path.relpath(str(rsc2.files())), os.path.dirname(rsc2.get_package_path())) in datas
+    assert (os.path.relpath(str(rsc.files())), os.path.dirname(rsc.package_path)) in datas
+    assert (os.path.relpath(str(rsc2.files())), os.path.dirname(rsc2.package_path)) in datas
 
 
 if __name__ == '__main__':

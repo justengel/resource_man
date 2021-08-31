@@ -1,11 +1,12 @@
 import os
 import sys
 import shutil
-import subprocess
+import time
 import contextlib
+from subprocess import run
 
 
-SHELL = {'shell': True, 'stdout': sys.stdout, 'stderr': sys.stderr}
+SHELL = {'shell': True, 'check': True, 'stdout': sys.stdout, 'stderr': sys.stderr}
 os.chdir(os.path.dirname(__file__))
 
 
@@ -14,13 +15,13 @@ def check_installed(**kwargs):
     try:
         import pylibimp
     except (ImportError, Exception):
-        assert subprocess.run(['python', '-m', 'pip', 'install', 'pylibimp'], **SHELL).returncode == 0
+        run(['python', '-m', 'pip', 'install', 'pylibimp'], **SHELL)
 
     # install sub package
     try:
         import check_lib.check_sub
     except (ImportError, Exception):
-        assert subprocess.run(['python', '-m', 'pip', 'install', './test_lib'], **SHELL).returncode == 0
+        run(['python', '-m', 'pip', 'install', './test_lib'], **SHELL)
 
 
 @contextlib.contextmanager
@@ -29,12 +30,12 @@ def compile_qt_qrc(main_module, run_two_cmds=True, delete_compiled=True, **kwarg
         # Compile resources
         if run_two_cmds:
             print('Create .qrc')
-            assert subprocess.run(['python', '-m', 'resource_man.qt', 'create', main_module], **SHELL).returncode == 0
+            run(['python', '-m', 'resource_man.qt', 'create', main_module], **SHELL)
             print('Compile .qrc')
-            assert subprocess.run(['python', '-m', 'resource_man.qt', 'compile'], **SHELL).returncode == 0
+            run(['python', '-m', 'resource_man.qt', 'compile'], **SHELL)
         else:
             print('Create and Compile .qrc')
-            assert subprocess.run(['python', '-m', 'resource_man.qt', 'run', main_module], **SHELL).returncode == 0
+            run(['python', '-m', 'resource_man.qt', 'run', main_module], **SHELL)
 
         yield
     finally:
@@ -62,7 +63,7 @@ def pyinstaller_exe(main_module, run_hook=True, delete_build=True, **kwargs):
 
     try:
         print('Create PyInstaller Executable')
-        assert subprocess.run(args, **SHELL).returncode == 0
+        run(args, **SHELL)
 
         yield
     finally:
@@ -83,7 +84,7 @@ def cxfreeze_exe(main_module, **kwargs):
             # '--zip-include-packages', 'check_lib']
 
     print('Create Cx_Freeze Executable')
-    assert subprocess.run(args, **SHELL).returncode == 0
+    run(args, **SHELL)
 
     yield
 
@@ -93,16 +94,20 @@ def run_exe(main_module, delete_dist=True, **kwargs):
 
     try:
         print('Run Executable')
-        assert subprocess.run(['call', '.\\dist\\{0}\\{0}.exe'.format(main_name)], **SHELL).returncode == 0
+        run(['call', '.\\dist\\{0}\\{0}.exe'.format(main_name)], **SHELL)
     finally:
         if delete_dist:
-            try: shutil.rmtree('dist')
+            time.sleep(1)
+            try: shutil.rmtree('./dist')
             except: pass
 
 
 if __name__ == '__main__':
     MAIN_MODULE = 'readme_qt.py'
     check_installed()
+
+    # with compile_qt_qrc(MAIN_MODULE, run_two_cmds=True, delete_compiled=False):
+    #     pass
 
     with compile_qt_qrc(MAIN_MODULE, run_two_cmds=True, delete_compiled=True):
         with pyinstaller_exe(main_module=MAIN_MODULE, run_hook=True, delete_build=True):
