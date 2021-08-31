@@ -21,7 +21,7 @@ def check_installed(**kwargs):
     try:
         import check_lib.check_sub
     except (ImportError, Exception):
-        run(['python', '-m', 'pip', 'install', './test_lib'], **SHELL)
+        run(['python', '-m', 'pip', 'install', '-e', './test_lib'], **SHELL)
 
 
 @contextlib.contextmanager
