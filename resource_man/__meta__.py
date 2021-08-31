@@ -1,5 +1,5 @@
 name = 'resource_man'
-version = '1.1.0'
+version = '2.0.0'
 description = 'Python resource manager to work with the standard library for regular python code and executables.'
 url = 'https://github.com/justengel/resource_man'
 author = 'Justin Engel'
