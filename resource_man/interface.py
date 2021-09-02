@@ -3,6 +3,11 @@ import copy
 import contextlib
 from .importlib_interface import Traversable, contents, is_resource, read_binary, read_text, files, as_file
 
+try:
+    from dataclasses import MISSING
+except (ImportError, Exception):
+    MISSING = object()
+
 
 __all__ = [
     'ResourceNotAvailable', 'Resource', 'ResourceManager', 'get_global_manager', 'set_global_manager', 'temp_manager',
@@ -11,22 +16,20 @@ __all__ = [
     ]
 
 
-class MISSING:
-    pass
-
-
 class ResourceNotAvailable(Exception):
     pass
 
 
 class Resource:
-    def __init__(self, package, name, alias=None, **kwargs):
+    def __init__(self, package, name, alias=MISSING, **kwargs):
         """Initialize the resource object.
 
         Args:
             package (str): Package or module name where the resource can be found (EX: "mylib.mysubpkg")
             name (str): Name of the resource (EX: "myimg.png").
-            alias (str)[None]: Shortcut alias name identifer for the resource.
+            alias (str)[MISSING]: Shortcut alias name identifer for the resource.
+                ... (Ellipsis) will be the name with the extension (EX: "myimg.png")
+                None will be the name without the extension (EX: "myimg")
             **kwargs (dict): Dictionary of keyword arguments to set as resource attributes.
         """
         self.raw_alias = alias
@@ -48,10 +51,12 @@ class Resource:
     @property
     def alias(self):
         """Return the alias name identifier."""
-        if self.raw_alias is ...:
+        if self.raw_alias is MISSING:
+            return self.package_path
+        elif self.raw_alias is ...:
             return self.name
         elif self.raw_alias is None:
-            return self.package_path
+            return os.path.splitext(self.name)[0]
         return self.raw_alias
 
     @alias.setter
@@ -146,14 +151,16 @@ class ResourceManager(list):
         # If not found add the resource to the list.
         self.append(value)
 
-    def register(self, package, name, alias=None, **kwargs):
+    def register(self, package, name, alias=MISSING, **kwargs):
         """Register a resource. You can optionally have an alias name identifier.
         When using the alias the last resource registered with the same alias will be used.
 
         Args:
             package (str): Package name ('check_lib.check_sub')
             name (str): Name of the resource ('edit-cut.png')
-            alias (str)[None]: Alias name identifier for quick access.
+            alias (str)[MISSING]: Shortcut alias name identifer for the resource.
+                ... (Ellipsis) will be the name with the extension (EX: "myimg.png")
+                None will be the name without the extension (EX: "myimg")
             **kwargs (dict): Dictionary of keyword arguments to set as attributes to the resource.
         """
         rsc = Resource(package, name, alias=alias, **kwargs)
@@ -330,14 +337,16 @@ def clear():
     get_global_manager().clear()
 
 
-def register(package, name, alias=None, **kwargs):
+def register(package, name, alias=MISSING, **kwargs):
     """Register a resource. You can optionally have an alias name identifier.
     When using the alias the last resource registered with the same alias will be used.
 
     Args:
         package (str): Package name ('check_lib.check_sub')
         name (str): Name of the resource ('edit-cut.png')
-        alias (str)[None]: Alias name identifier for quick access.
+        alias (str)[MISSING]: Shortcut alias name identifer for the resource.
+            ... (Ellipsis) will be the name with the extension (EX: "myimg.png")
+            None will be the name without the extension (EX: "myimg")
         **kwargs (dict): Dictionary of keyword arguments to set as attributes to the resource.
     """
     return get_global_manager().register(package, name, alias=alias, **kwargs)

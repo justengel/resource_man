@@ -4,11 +4,11 @@ import resource_man.qt as rsc
 
 
 # Register on import outside of main
+EDIT_CUT = rsc.register('check_lib.check_sub', 'edit-cut.png', None)  # None uses name no ext as alias ('edit-cut')
+rsc.register('check_lib.check_sub', 'document-save-as.svg', None)  # None uses name no ext as alias ('document-save-as')
 RSC = rsc.register('check_lib', 'rsc.txt', ...)  # ... uses name as alias ("rsc.txt")
 RSC2 = rsc.register('check_lib.check_sub', 'rsc2.txt', ...)  # ... uses name as alias ("rsc2.txt")
-EDIT_CUT = rsc.register('check_lib.check_sub', 'edit-cut.png', alias='edit-cut')
 DOCUMENT_NEW = rsc.register('check_lib.check_sub', 'document-new.png')  # QFile ":/check_lib/check_sub/document-new.png"
-rsc.register('check_lib.check_sub', 'document-save-as.svg', ...)
 
 
 if __name__ == '__main__':
@@ -94,12 +94,12 @@ if __name__ == '__main__':
         pass
     try:
         lbl = QtWidgets.QLabel()
-        lbl.setPixmap(rsc.QPixmap("document-save-as.svg").scaledToHeight(32))
+        lbl.setPixmap(rsc.QPixmap("document-save-as").scaledToHeight(32))
         hlay.addWidget(lbl)
     except (rsc.ResourceNotAvailable, OSError, TypeError) as err:
         pass
     try:
-        svg = rsc.QSvgWidget("document-save-as.svg")
+        svg = rsc.QSvgWidget("document-save-as")
         svg.setFixedSize(32, 32)
         hlay.addWidget(svg)
     except (rsc.ResourceNotAvailable, OSError, TypeError) as err:
