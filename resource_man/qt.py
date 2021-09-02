@@ -6,7 +6,7 @@ from pathlib import Path
 import importlib
 from contextlib import contextmanager
 from dynamicmethod import dynamicmethod
-from qtpy import API_NAME, QtCore, QtGui
+from qtpy import API_NAME, QtCore, QtGui, QtSvg
 
 from resource_man.__meta__ import version as __version__
 from resource_man.importlib_interface import \
@@ -27,7 +27,7 @@ except (ValueError, Exception):
 
 
 __all__ = [
-    'get_file', 'QPixmap', 'QIcon', 'create_qrc', 'compile_qrc', 'create_compiled', 'load_resource',
+    'get_file', 'QPixmap', 'QIcon', 'QSvgWidget', 'create_qrc', 'compile_qrc', 'create_compiled', 'load_resource',
     'compiled_py_to_qtpy',
 
     'READ_API', 'FILES_API', 'Traversable', 'contents', 'is_resource', 'read_binary', 'read_text', 'files', 'as_file',
@@ -39,40 +39,64 @@ __all__ = [
     ]
 
 
-def get_file(name):
-    """Return the Qt file name or binary data from the file."""
+def get_file(name, return_bytes=True, extension=None):
+    """Return the Qt file name or binary data from the file.
+
+    Args:
+        name (str/bytes/Traversable/Resource): Find the file from the name or resource object.
+        return_bytes (bool)[True]: If name is Traversable or Resource try reading the bytes.
+            If False return Traversable.
+        extension (str)[None]: If given str check the extension before returning a valid value.
+
+    Returns:
+        name (str/bytes/Traversable): Prefer returning the string filename.
+            If unable to find the filename and return_bytes is True return the file bytes.
+            If unable to find the filename and return_bytes is False return the Traversable (Path) object.
+            If not found or the filename does not have the proper extension return ''.
+    """
     if isinstance(name, bytes):
         return name
     elif isinstance(name, Traversable):
-        return name.read_bytes()
-
-    try:
-        if QtCore.QFile(name).exists() or QIcon.hasThemeIcon(name):
-            return name
-    except (ResourceNotAvailable, TypeError, ValueError, Exception):
-        pass
+        has_extension = extension is None or os.path.splitext(str(name))[-1].lower() == extension.lower()
+        if has_extension:
+            if return_bytes:
+                return name.read_bytes()
+            return name  # Returning Traversable
+        return ''
 
     # Try to create the icon from the Qt name
     try:
-        if QtCore.QFile(':/' + name).exists():
-            return ':/' + name
+        has_extension = extension is None or os.path.splitext(str(name))[-1].lower() == extension.lower()
+        if has_extension:
+            if QtCore.QFile.exists(name):
+                return name
+
+            qt_name = ':/' + name
+            if QtCore.QFile.exists(qt_name):
+                return qt_name
     except (ResourceNotAvailable, TypeError, ValueError, Exception):
         pass
 
     # Try to create the icon from the registered resource name
     try:
         resource = get_resource(name)
-        rsc_name = resource.alias
-        if QtCore.QFile(rsc_name).exists():
-            return rsc_name
-        rsc_name = ':/' + resource.alias
-        if QtCore.QFile(rsc_name).exists():
-            return rsc_name
+        has_extension = extension is None or os.path.splitext(str(resource.name))[-1].lower() == extension.lower()
+        if has_extension:
+            rsc_name = resource.alias
+            qt_name = ':/' + rsc_name
+            if QtCore.QFile.exists(rsc_name):
+                return rsc_name
+            elif QtCore.QFile.exists(qt_name):
+                return qt_name
 
-        # Last resort return the binary.
-        return resource.read_binary()
-    except (ResourceNotAvailable, TypeError, ValueError, Exception):
+            # Last resort return the binary.
+            if return_bytes:
+                return resource.read_bytes()
+            return resource.files()  # Returning Traversable
+    except (ResourceNotAvailable, TypeError, ValueError, OSError, ImportError, Exception):
         pass
+
+    return ''
 
 
 class QPixmap(QtGui.QPixmap):
@@ -84,7 +108,7 @@ class QPixmap(QtGui.QPixmap):
         load_data = None
         if len(args) >= 1 and isinstance(args[0], (Resource, str, bytes, Traversable)):
             # Try to find filename, Qt File, or importlib.resources read resource bytes.
-            data_file = get_file(args[0])
+            data_file = get_file(args[0], return_bytes=True, extension=None)
             if isinstance(data_file, str):
                 args = (data_file,) + args[1:]
             elif isinstance(data_file, bytes):
@@ -104,14 +128,13 @@ class QIcon(QtGui.QIcon):
 
     def __init__(self, *args, **kwargs):
         is_valid = False
-        icon = None
         if len(args) >= 1:
             if isinstance(args[0], str) and QIcon.hasThemeIcon(args[0]):
                 args = (QtGui.QIcon.fromTheme(args[0]),) + args[1:]
                 is_valid = True
             elif isinstance(args[0], (Resource, str, bytes, Traversable)):
                 # Try to find filename, Qt File, or importlib.resources read resource bytes.
-                data_file = get_file(args[0])
+                data_file = get_file(args[0], return_bytes=True, extension=None)
                 if isinstance(data_file, str):
                     args = (data_file,) + args[1:]
                     is_valid = True
@@ -122,21 +145,40 @@ class QIcon(QtGui.QIcon):
                     is_valid = True
 
         super(QIcon, self).__init__(*args, **kwargs)
-
-        if icon is not None:
-            self.swap(icon)
         self.is_valid = is_valid
 
     @dynamicmethod
-    def fromTheme(cls, name, fallback=None):
+    def fromTheme(self, name, fallback=None):
         icn = QIcon(name)
         if not icn.is_valid and fallback is not None:
             icn = QIcon(fallback)
 
-        if isinstance(cls, QIcon):
-            cls.swap(icn)
-            return cls
+        if isinstance(self, QIcon):
+            self.swap(icn)
+            return self
         return icn
+
+
+class QSvgWidget(QtSvg.QSvgWidget):
+    """QSvgWidget with resource_man support."""
+    def __new__(cls, *args, **kwargs):
+        return super(QSvgWidget, cls).__new__(cls)
+
+    def __init__(self, *args, **kwargs):
+        load_data = None
+        if len(args) >= 1 and isinstance(args[0], (Resource, str, bytes, Traversable)):
+            # Try to find filename, Qt File, or importlib.resources read resource bytes.
+            data_file = get_file(args[0], return_bytes=True, extension='.svg')
+            if isinstance(data_file, str):
+                args = (data_file,) + args[1:]
+            elif isinstance(data_file, bytes):
+                load_data = data_file
+                args = ('',) + args[1:]
+
+        super(QSvgWidget, self).__init__(*args, **kwargs)
+
+        if isinstance(load_data, bytes):
+            self.load(load_data)
 
 
 @contextmanager

@@ -8,6 +8,7 @@ RSC = rsc.register('check_lib', 'rsc.txt', ...)  # ... uses name as alias ("rsc.
 RSC2 = rsc.register('check_lib.check_sub', 'rsc2.txt', ...)  # ... uses name as alias ("rsc2.txt")
 EDIT_CUT = rsc.register('check_lib.check_sub', 'edit-cut.png', alias='edit-cut')
 DOCUMENT_NEW = rsc.register('check_lib.check_sub', 'document-new.png')  # QFile ":/check_lib/check_sub/document-new.png"
+rsc.register('check_lib.check_sub', 'document-save-as.svg', ...)
 
 
 if __name__ == '__main__':
@@ -75,10 +76,32 @@ if __name__ == '__main__':
         widg.layout().addWidget(btn_binary_importlib)
     except (rsc.ResourceNotAvailable, OSError, TypeError) as err:
         pass
+
+    # Show Images
+    hlay = QtWidgets.QHBoxLayout()
+    widg.layout().addLayout(hlay)
     try:
         lbl = QtWidgets.QLabel()
-        lbl.setPixmap(rsc.QPixmap(rsc.files('check_lib.check_sub').joinpath('edit-cut.png')).scaled(24, 24, QtCore.Qt.KeepAspectRatio))
-        widg.layout().addWidget(lbl)
+        lbl.setPixmap(rsc.QPixmap(rsc.files('check_lib.check_sub').joinpath('edit-cut.png')).scaledToHeight(32))
+        hlay.addWidget(lbl)
+    except (rsc.ResourceNotAvailable, OSError, TypeError) as err:
+        pass
+    try:
+        # QSvg Cannot load png images. This will be blank
+        invalid = rsc.QSvgWidget("check_lib/check_sub/document-new.png")
+        hlay.addWidget(invalid)
+    except (rsc.ResourceNotAvailable, OSError, TypeError) as err:
+        pass
+    try:
+        lbl = QtWidgets.QLabel()
+        lbl.setPixmap(rsc.QPixmap("document-save-as.svg").scaledToHeight(32))
+        hlay.addWidget(lbl)
+    except (rsc.ResourceNotAvailable, OSError, TypeError) as err:
+        pass
+    try:
+        svg = rsc.QSvgWidget("document-save-as.svg")
+        svg.setFixedSize(32, 32)
+        hlay.addWidget(svg)
     except (rsc.ResourceNotAvailable, OSError, TypeError) as err:
         pass
 
