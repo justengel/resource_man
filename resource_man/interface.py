@@ -1,4 +1,5 @@
 import os
+import sys
 import copy
 import contextlib
 from .importlib_interface import Traversable, contents, is_resource, read_binary, read_text, files, as_file
@@ -113,7 +114,16 @@ class Resource:
                 pass
             return str(filename)
         except (ResourceNotAvailable, OSError, TypeError, ValueError, Exception):
-            return self.package_path
+            pp = orig_pp = str(self.package_path)
+            if not os.path.exists(pp):
+                pp = os.path.join(getattr(sys, '_MEIPASS', sys.executable), pp)
+                if not os.path.exists(pp):
+                    pp = orig_pp
+            return pp
+
+    def __fspath__(self):
+        """Return the file path. This is not recommended. You should be using 'as_file' or 'read_text'."""
+        return self.__str__()
 
     def __repr__(self):
         kwargs = {'cls': self.__class__.__name__, 'package': self.package, 'name': self.name, 'alias': self.alias}

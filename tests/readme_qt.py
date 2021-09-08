@@ -20,6 +20,10 @@ if __name__ == '__main__':
     widg = QtWidgets.QWidget()
     widg.setLayout(QtWidgets.QVBoxLayout())
 
+    # Use the Resource as the Path. This is not recommended. Use 'as_file' or 'read_text'.
+    with open(DOCUMENT_NEW, 'rb') as f:  # Need str for some objects QtCore.QFile(str(DOCUMENT_NEW))
+        assert len(f.read()) > 0
+
     # Resource file (Must be compiled and loaded)
     file = QtCore.QFile(':/rsc2.txt')
     if not file.open(QtCore.QIODevice.ReadOnly | QtCore.QIODevice.Text):
