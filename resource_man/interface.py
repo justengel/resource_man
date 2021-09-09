@@ -1,6 +1,7 @@
 import os
 import sys
 import copy
+import atexit
 import contextlib
 from .importlib_interface import Traversable, contents, is_resource, read_binary, read_text, files, as_file
 
@@ -36,6 +37,8 @@ class Resource:
         self.raw_alias = alias
         self.package = package
         self.name = name
+        self._context = None
+        self._context_obj = None
 
         # Set all keyword arguments as attributes
         for k, v in kwargs.items():
@@ -75,8 +78,8 @@ class Resource:
 
     @contextlib.contextmanager
     def as_file(self):
-        with as_file(self.files()) as filename:
-            yield filename
+        with as_file(self.files()) as file:
+            yield file
 
     def contents(self):
         return contents(self.package)
@@ -99,14 +102,39 @@ class Resource:
             error = err
         raise ResourceNotAvailable(str(error))
 
-    def __eq__(self, other):
-        if isinstance(other, str):
-            return other == self.alias or other == self.package_path
-        return super().__eq__(other)
+    def _enter_context(self):
+        """Use "as_file" to enter the with context block for the life of the application in order to get the filepath.
+        """
+        self._context = self.as_file()
+        self._context_obj = self._context.__enter__()
+        try:
+            self._context_obj = self._context_obj.resolve()  # Get proper path capitalization
+        except (AttributeError, Exception):
+            pass
+        atexit.register(self._exit_context)
+
+    def _exit_context(self):
+        """Exit the context object that was used with "as_file"."""
+        try:
+            self._context.__exit__()
+        except (ResourceNotAvailable, OSError, TypeError, ValueError, Exception):
+            pass
+        finally:
+            self._context_obj = None
+            self._context = None
 
     def __str__(self):
         """Return the full string file path. I'm not sure if this will always work. "as_file" should be used."""
         try:
+            if self._context_obj:
+                return str(self._context_obj)
+
+            # Use "as_file" to enter the context and return the filepath
+            self._enter_context()
+            if self._context_obj:
+                return str(self._context_obj)
+
+            # Use files to return the path. Should I even do this?
             filename = self.files()
             try:
                 filename = filename.resolve()
@@ -114,16 +142,24 @@ class Resource:
                 pass
             return str(filename)
         except (ResourceNotAvailable, OSError, TypeError, ValueError, Exception):
-            pp = orig_pp = str(self.package_path)
+            pass
+
+        # Return the simple package path from the working directory.
+        pp = orig_pp = str(self.package_path)
+        if not os.path.exists(pp):
+            pp = os.path.join(getattr(sys, '_MEIPASS', sys.executable), pp)
             if not os.path.exists(pp):
-                pp = os.path.join(getattr(sys, '_MEIPASS', sys.executable), pp)
-                if not os.path.exists(pp):
-                    pp = orig_pp
-            return pp
+                pp = orig_pp
+        return pp
 
     def __fspath__(self):
         """Return the file path. This is not recommended. You should be using 'as_file' or 'read_text'."""
         return self.__str__()
+
+    def __eq__(self, other):
+        if isinstance(other, str):
+            return other == self.alias or other == self.package_path
+        return super().__eq__(other)
 
     def __repr__(self):
         kwargs = {'cls': self.__class__.__name__, 'package': self.package, 'name': self.name, 'alias': self.alias}
