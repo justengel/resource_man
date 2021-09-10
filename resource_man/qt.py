@@ -99,7 +99,11 @@ def get_file(name, return_bytes=True, extension=None):
     return ''
 
 
-class QPixmap(QtGui.QPixmap):
+QtGui_QIcon = QtGui.QIcon
+QtGui_QPixmap = QtGui.QPixmap
+
+
+class QPixmap(QtGui_QPixmap):
     """Special QPixmap that can load from resource_man values."""
     def __new__(cls, *args, **kwargs):
         return super(QPixmap, cls).__new__(cls)
@@ -121,7 +125,7 @@ class QPixmap(QtGui.QPixmap):
             self.loadFromData(load_data)
 
 
-class QIcon(QtGui.QIcon):
+class QIcon(QtGui_QIcon):
     """Special QIcon that can load from resource_man values."""
     def __new__(cls, *args, **kwargs):
         return super(QIcon, cls).__new__(cls)
@@ -130,7 +134,7 @@ class QIcon(QtGui.QIcon):
         is_valid = False
         if len(args) >= 1:
             if isinstance(args[0], str) and QIcon.hasThemeIcon(args[0]):
-                args = (QtGui.QIcon.fromTheme(args[0]),) + args[1:]
+                args = (QtGui_QIcon.fromTheme(args[0]),) + args[1:]
                 is_valid = True
             elif isinstance(args[0], (Resource, str, bytes, Traversable)):
                 # Try to find filename, Qt File, or importlib.resources read resource bytes.
@@ -139,7 +143,7 @@ class QIcon(QtGui.QIcon):
                     args = (data_file,) + args[1:]
                     is_valid = True
                 elif isinstance(data_file, bytes):
-                    pixmap = QtGui.QPixmap()
+                    pixmap = QtGui_QPixmap()
                     pixmap.loadFromData(data_file)
                     args = (pixmap, ) + args[1:]
                     is_valid = True
