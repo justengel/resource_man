@@ -244,7 +244,7 @@ class ResourceManager(list):
             name = str(name)
             ext = os.path.splitext(name)[-1]
             if (name not in exclude) and (extensions is None or ext in extensions):
-                directory.append(self.RESOURCE_CLASS(package, name))
+                directory.append(self.register(package, name, **kwargs))
 
         return directory
 
