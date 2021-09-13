@@ -170,6 +170,9 @@ class Resource:
 
 
 class ResourceManager(list):
+
+    RESOURCE_CLASS = Resource
+
     def __getitem__(self, item):
         if isinstance(item, int):
             return super().__getitem__(item)
@@ -184,7 +187,7 @@ class ResourceManager(list):
         if isinstance(key, int):
             super().__setitem__(key, value)
             return
-        elif isinstance(key, Resource):
+        elif isinstance(key, self.RESOURCE_CLASS):
             key = key.alias or key.package_path
 
         # Find the resource and replace the identifier
@@ -209,7 +212,7 @@ class ResourceManager(list):
                 None will be the name without the extension (EX: "myimg")
             **kwargs (dict): Dictionary of keyword arguments to set as attributes to the resource.
         """
-        rsc = Resource(package, name, alias=alias, **kwargs)
+        rsc = self.RESOURCE_CLASS(package, name, alias=alias, **kwargs)
         self.append(rsc)
         return rsc
 
@@ -241,7 +244,7 @@ class ResourceManager(list):
             name = str(name)
             ext = os.path.splitext(name)[-1]
             if (name not in exclude) and (extensions is None or ext in extensions):
-                directory.append(self.register(package, name))
+                directory.append(self.RESOURCE_CLASS(package, name))
 
         return directory
 
