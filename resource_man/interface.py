@@ -14,7 +14,8 @@ except (ImportError, Exception):
 __all__ = [
     'ResourceNotAvailable', 'Resource', 'ResourceManager', 'get_global_manager', 'set_global_manager', 'temp_manager',
     'clear', 'register', 'register_directory', 'unregister', 'has_resource', 'get_resources', 'get_resource',
-    'get_binary', 'get_text'
+    'get_binary', 'get_text',
+    'MISSING'
     ]
 
 
