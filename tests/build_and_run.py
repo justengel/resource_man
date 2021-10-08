@@ -25,25 +25,47 @@ def check_installed(**kwargs):
 
 
 @contextlib.contextmanager
-def compile_qt_qrc(main_module, run_two_cmds=True, delete_compiled=True, **kwargs):
-    try:
-        # Compile resources
-        if run_two_cmds:
-            print('Create .qrc')
-            run(['python', '-m', 'resource_man.qt', 'create', main_module], **SHELL)
-            print('Compile .qrc')
-            run(['python', '-m', 'resource_man.qt', 'compile'], **SHELL)
-        else:
-            print('Create and Compile .qrc')
-            run(['python', '-m', 'resource_man.qt', 'run', main_module], **SHELL)
+def compile_qt_qrc(main_module, run_two_cmds=True, delete_compiled=True, use_import=False, **kwargs):
+    if use_import:
+        try:
+            import resource_man.qt as rsc
 
-        yield
-    finally:
-        if delete_compiled:
-            try: os.remove('resource_man_compiled_resources.qrc')
-            except: pass
-            try: os.remove('resource_man_compiled_resources.py')
-            except: pass
+            # Compile resources
+            if run_two_cmds:
+                print('Create .qrc')
+                rsc.create_qrc(main_module=main_module)
+                print('Compile .qrc')
+                rsc.compile_qrc()
+            else:
+                print('Create and Compile .qrc')
+                rsc.create_compiled(main_module=main_module)
+
+            yield
+        finally:
+            if delete_compiled:
+                try: os.remove('resource_man_compiled_resources.qrc')
+                except: pass
+                try: os.remove('resource_man_compiled_resources.py')
+                except: pass
+    else:
+        try:
+            # Compile resources
+            if run_two_cmds:
+                print('Create .qrc')
+                run(['python', '-m', 'resource_man.qt', 'create', main_module], **SHELL)
+                print('Compile .qrc')
+                run(['python', '-m', 'resource_man.qt', 'compile'], **SHELL)
+            else:
+                print('Create and Compile .qrc')
+                run(['python', '-m', 'resource_man.qt', 'run', main_module], **SHELL)
+
+            yield
+        finally:
+            if delete_compiled:
+                try: os.remove('resource_man_compiled_resources.qrc')
+                except: pass
+                try: os.remove('resource_man_compiled_resources.py')
+                except: pass
 
 
 @contextlib.contextmanager
@@ -104,16 +126,17 @@ def run_exe(main_module, delete_dist=True, **kwargs):
 
 if __name__ == '__main__':
     MAIN_MODULE = 'readme_qt.py'
+    # MAIN_MODULE = 'run_linked.py'
     check_installed()
 
     # with compile_qt_qrc(MAIN_MODULE, run_two_cmds=True, delete_compiled=False):
     #     pass
 
-    with compile_qt_qrc(MAIN_MODULE, run_two_cmds=True, delete_compiled=True):
+    with compile_qt_qrc(MAIN_MODULE, run_two_cmds=True, delete_compiled=False, use_import=True):
         with pyinstaller_exe(main_module=MAIN_MODULE, run_hook=True, delete_build=True):
             run_exe(main_module=MAIN_MODULE)
 
-    with compile_qt_qrc(MAIN_MODULE, run_two_cmds=True, delete_compiled=True):
+    with compile_qt_qrc(MAIN_MODULE, run_two_cmds=True, delete_compiled=False, use_import=True):
         with cxfreeze_exe(main_module=MAIN_MODULE):
             run_exe(main_module=MAIN_MODULE)
 

@@ -13,8 +13,8 @@ except (ImportError, Exception):
 
 __all__ = [
     'ResourceNotAvailable', 'Resource', 'ResourceManager', 'get_global_manager', 'set_global_manager', 'temp_manager',
-    'clear', 'register', 'register_directory', 'unregister', 'has_resource', 'get_resources', 'get_resource',
-    'get_binary', 'get_text',
+    'add_manager', 'remove_manager', 'clear', 'register', 'register_directory', 'unregister', 'has_resource',
+    'get_resources', 'get_resource', 'get_binary', 'get_text',
     'MISSING'
     ]
 
@@ -24,7 +24,7 @@ class ResourceNotAvailable(Exception):
 
 
 class Resource:
-    def __init__(self, package, name, alias=MISSING, **kwargs):
+    def __init__(self, package, name, alias=MISSING, manager=None, **kwargs):
         """Initialize the resource object.
 
         Args:
@@ -33,8 +33,10 @@ class Resource:
             alias (str)[MISSING]: Shortcut alias name identifer for the resource.
                 ... (Ellipsis) will be the name with the extension (EX: "myimg.png")
                 None will be the name without the extension (EX: "myimg")
+            manager (ResourceManager)[None]: Manager that holds this object.
             **kwargs (dict): Dictionary of keyword arguments to set as resource attributes.
         """
+        self.manager = manager
         self.raw_alias = alias
         self.package = package
         self.name = name
@@ -174,19 +176,43 @@ class ResourceManager(list):
 
     RESOURCE_CLASS = Resource
 
+    def __init__(self, *args, **kwargs):
+        super(ResourceManager, self).__init__(*args)
+        self.init(**kwargs)
+
+    def init(self, **kwargs):
+        """Initialize"""
+        self.managers = list(kwargs.pop('managers', []))
+
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def add_manager(self, man):
+        """Add a manager to help with saving all managers."""
+        self.managers.append(man)
+
+    def remove_manager(self, man):
+        """Remove a linked manager."""
+        try:
+            self.managers.remove(man)
+        except (TypeError, ValueError, Exception):
+            pass
+
     def __getitem__(self, item):
         if isinstance(item, int):
-            return super().__getitem__(item)
+            return super(ResourceManager, self).__getitem__(item)
 
-        for rsc in reversed(self):
-            if rsc == item:
-                return rsc
+        # Search through all linked managers
+        for man in [self] + self.managers:
+            for rsc in reversed(man):
+                if rsc == item:
+                    return rsc
 
         raise ResourceNotAvailable("The requested resouce was not found!")
 
     def __setitem__(self, key, value):
         if isinstance(key, int):
-            super().__setitem__(key, value)
+            super(ResourceManager, self).__setitem__(key, value)
             return
         elif isinstance(key, self.RESOURCE_CLASS):
             key = key.alias or key.package_path
@@ -195,7 +221,7 @@ class ResourceManager(list):
         for i in reversed(range(len(self))):
             rsc = self[i]
             if rsc.alias == key:
-                super().__setitem__(i, value)
+                super(ResourceManager, self).__setitem__(i, value)
                 return
 
         # If not found add the resource to the list.
@@ -213,6 +239,8 @@ class ResourceManager(list):
                 None will be the name without the extension (EX: "myimg")
             **kwargs (dict): Dictionary of keyword arguments to set as attributes to the resource.
         """
+        if 'manager' not in kwargs:
+            kwargs['manager'] = self
         rsc = self.RESOURCE_CLASS(package, name, alias=alias, **kwargs)
         self.append(rsc)
         return rsc
@@ -380,6 +408,16 @@ def temp_manager(manager):
         yield
     finally:
         set_global_manager(old)
+
+
+def add_manager(man):
+    """Add a manager to help with saving all managers."""
+    return get_global_manager().add_manager(man)
+
+
+def remove_manager(man):
+    """Remove a linked manager."""
+    return get_global_manager().remove_manager(man)
 
 
 def clear():

@@ -93,7 +93,11 @@ if __name__ == '__main__':
     try:
         # QSvg Cannot load png images. This will be blank
         invalid = rsc.QSvgWidget("check_lib/check_sub/document-new.png")
-        hlay.addWidget(invalid)
+        w = QtWidgets.QWidget()
+        w.setLayout(QtWidgets.QVBoxLayout())
+        w.layout().addWidget(QtWidgets.QLabel('QSvgWidget NO PNG'))
+        w.layout().addWidget(invalid)
+        hlay.addWidget(w)
     except (rsc.ResourceNotAvailable, OSError, TypeError) as err:
         pass
     try:
