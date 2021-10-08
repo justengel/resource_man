@@ -13,8 +13,9 @@ from resource_man.__meta__ import version as __version__
 from resource_man.importlib_interface import \
     READ_API, FILES_API, Traversable, contents, is_resource, read_binary, read_text, files, as_file
 from resource_man.interface import \
-    ResourceNotAvailable, Resource, ResourceManager, get_global_manager, set_global_manager, temp_manager, \
-    add_manager, remove_manager, clear, register, register_data, register_directory, unregister, has_resource, \
+    ResourceNotAvailable, Resource, ResourceManagerInterface, ResourceManager, \
+    get_global_manager, set_global_manager, temp_manager, add_manager, remove_manager, \
+    clear, register, register_data, register_directory, unregister, has_resource, \
     get_resources, get_resource, get_binary, get_text, \
     MISSING
 
@@ -35,8 +36,9 @@ __all__ = [
 
     'READ_API', 'FILES_API', 'Traversable', 'contents', 'is_resource', 'read_binary', 'read_text', 'files', 'as_file',
 
-    'ResourceNotAvailable', 'Resource', 'ResourceManager', 'get_global_manager', 'set_global_manager', 'temp_manager',
-    'add_manager', 'remove_manager', 'clear', 'register', 'register_data', 'register_directory', 'unregister',
+    'ResourceNotAvailable', 'Resource', 'ResourceManagerInterface', 'ResourceManager',
+    'get_global_manager', 'set_global_manager', 'temp_manager', 'add_manager', 'remove_manager',
+    'clear', 'register', 'register_data', 'register_directory', 'unregister',
     'has_resource', 'get_resources', 'get_resource', 'get_binary', 'get_text',
     'MISSING',
     '__version__'

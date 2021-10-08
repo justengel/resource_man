@@ -5,8 +5,9 @@ from .importlib_interface import \
     rsc_files, rsc_as_file, rsc_read_binary, rsc_read_text, rsc_contents, rsc_is_resource
 
 from .interface import \
-    ResourceNotAvailable, Resource, ResourceManager, get_global_manager, set_global_manager, temp_manager, \
-    add_manager, remove_manager, clear, register, register_data, register_directory, unregister, has_resource, \
+    ResourceNotAvailable, Resource, ResourceManagerInterface, ResourceManager, \
+    get_global_manager, set_global_manager, temp_manager, add_manager, remove_manager, \
+    clear, register, register_data, register_directory, unregister, has_resource, \
     get_resources, get_resource, get_binary, get_text, \
     MISSING
 

@@ -12,8 +12,9 @@ except (ImportError, Exception):
 
 
 __all__ = [
-    'ResourceNotAvailable', 'Resource', 'ResourceManager', 'get_global_manager', 'set_global_manager', 'temp_manager',
-    'add_manager', 'remove_manager', 'clear', 'register', 'register_data', 'register_directory', 'unregister',
+    'ResourceNotAvailable', 'Resource', 'ResourceManagerInterface', 'ResourceManager',
+    'get_global_manager', 'set_global_manager', 'temp_manager', 'add_manager', 'remove_manager',
+    'clear', 'register', 'register_data', 'register_directory', 'unregister',
     'has_resource', 'get_resources', 'get_resource', 'get_binary', 'get_text',
     'MISSING'
     ]
@@ -208,20 +209,45 @@ class Resource:
             return '{cls}(package={package}, name={name})'.format(**kwargs)
 
 
-class ResourceManager(list):
-
+class ResourceManagerInterface(object):
     RESOURCE_CLASS = Resource
 
-    def __init__(self, *args, **kwargs):
-        super(ResourceManager, self).__init__(*args)
-        self.init(**kwargs)
+    def __init__(self, *resources, **kwargs):
+        if not hasattr(self, 'managers'):
+            self.managers = []
 
-    def init(self, **kwargs):
+        super(ResourceManagerInterface, self).__init__()
+        self.init(*resources, **kwargs)
+
+    def __iter__(self):
+        raise NotImplementedError
+
+    def __contains__(self, item):
+        raise NotImplementedError
+
+    def __getitem__(self, item):
+        raise NotImplementedError
+
+    def __setitem__(self, key, value):
+        raise NotImplementedError
+
+    def append(self, resource):
+        raise NotImplementedError
+
+    def pop(self, key, **kwargs):
+        raise NotImplementedError
+
+    def init(self, *resources, **kwargs):
         """Initialize"""
-        self.managers = list(kwargs.pop('managers', []))
+        self.managers = list(kwargs.pop('managers', getattr(self, 'managers', [])))
 
+        # Set keyword arguments as attributes
         for k, v in kwargs.items():
             setattr(self, k, v)
+
+        # Add resources
+        for resource in resources:
+            self.append(resource)
 
     def add_manager(self, man):
         """Add a manager to help with saving all managers."""
@@ -233,35 +259,6 @@ class ResourceManager(list):
             self.managers.remove(man)
         except (TypeError, ValueError, Exception):
             pass
-
-    def __getitem__(self, item):
-        if isinstance(item, int):
-            return super(ResourceManager, self).__getitem__(item)
-
-        # Search through all linked managers
-        for man in [self] + self.managers:
-            for rsc in reversed(man):
-                if rsc == item:
-                    return rsc
-
-        raise ResourceNotAvailable("The requested resouce was not found!")
-
-    def __setitem__(self, key, value):
-        if isinstance(key, int):
-            super(ResourceManager, self).__setitem__(key, value)
-            return
-        elif isinstance(key, self.RESOURCE_CLASS):
-            key = key.alias or key.package_path
-
-        # Find the resource and replace the identifier
-        for i in reversed(range(len(self))):
-            rsc = self[i]
-            if rsc.alias == key:
-                super(ResourceManager, self).__setitem__(i, value)
-                return
-
-        # If not found add the resource to the list.
-        self.append(value)
 
     def register(self, package, name, alias=MISSING, **kwargs):
         """Register a resource. You can optionally have an alias name identifier.
@@ -436,6 +433,50 @@ class ResourceManager(list):
         if isinstance(rsc, Resource):
             return rsc.read_text(encoding=encoding, errors=errors)
         return rsc
+
+
+class ResourceManager(list, ResourceManagerInterface):
+
+    RESOURCE_CLASS = Resource
+
+    def __init__(self, *resources, **kwargs):
+        list.__init__(self)
+        ResourceManagerInterface.__init__(self, *resources, **kwargs)
+
+    __iter__ = list.__iter__
+    __contains__ = list.__contains__
+
+    def __getitem__(self, item):
+        if isinstance(item, int):
+            return list.__getitem__(self, item)
+
+        # Search through all linked managers
+        for man in [self] + self.managers:
+            for rsc in reversed(man):
+                if rsc == item:
+                    return rsc
+
+        raise ResourceNotAvailable("The requested resouce was not found!")
+
+    def __setitem__(self, key, value):
+        if isinstance(key, int):
+            list.__setitem__(self, key, value)
+            return
+        elif isinstance(key, self.RESOURCE_CLASS):
+            key = key.alias or key.package_path
+
+        # Find the resource and replace the identifier
+        for i in reversed(range(len(self))):
+            rsc = self[i]
+            if rsc.alias == key:
+                list.__setitem__(i, value)
+                return
+
+        # If not found add the resource to the list.
+        self.append(value)
+
+    append = list.append
+    pop = list.pop
 
 
 RESOURCE_MANAGER = ResourceManager()
