@@ -10,6 +10,8 @@ RSC = rsc.register('check_lib', 'rsc.txt', ...)  # ... uses name as alias ("rsc.
 RSC2 = rsc.register('check_lib.check_sub', 'rsc2.txt', ...)  # ... uses name as alias ("rsc2.txt")
 DOCUMENT_NEW = rsc.register('check_lib.check_sub', 'document-new.png')  # QFile ":/check_lib/check_sub/document-new.png"
 
+DOC_NEW_DATA = rsc.register_data(DOCUMENT_NEW.read_bytes(), 'readme_qt', 'data_resource', 'data_resource')
+
 
 if __name__ == '__main__':
     app = QtWidgets.QApplication([])
@@ -55,6 +57,10 @@ if __name__ == '__main__':
 
     # Use Qt QResource File name alias
     btn = QtWidgets.QPushButton(rsc.QIcon(':/check_lib/check_sub/document-new.png'), 'QFile alias ":/check_lib/check_sub/document-new.png"', None)
+    widg.layout().addWidget(btn)
+
+    # Use Qt QResource File name alias
+    btn = QtWidgets.QPushButton(rsc.QIcon('data_resource'), 'data_resource', None)
     widg.layout().addWidget(btn)
 
     # Use Qt QResource File name alias - DOES NOT WORK! CAN ONLY USE QRC ALIAS IDENTIFIER!

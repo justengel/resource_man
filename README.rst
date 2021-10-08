@@ -290,7 +290,7 @@ This library uses *QtPy* to support PySide or PyQt.
     #             edit-cut.png
     #             document-new.png
     #             document-save-as.svg
-    import check_lib.check_sub
+        import check_lib.check_sub
     from qtpy import QtWidgets, QtCore
     import resource_man.qt as rsc
 
@@ -301,6 +301,8 @@ This library uses *QtPy* to support PySide or PyQt.
     RSC = rsc.register('check_lib', 'rsc.txt', ...)  # ... uses name as alias ("rsc.txt")
     RSC2 = rsc.register('check_lib.check_sub', 'rsc2.txt', ...)  # ... uses name as alias ("rsc2.txt")
     DOCUMENT_NEW = rsc.register('check_lib.check_sub', 'document-new.png')  # QFile ":/check_lib/check_sub/document-new.png"
+
+    DOC_NEW_DATA = rsc.register_data(DOCUMENT_NEW.read_bytes(), 'readme_qt', 'data_resource', 'data_resource')
 
 
     if __name__ == '__main__':
@@ -349,6 +351,10 @@ This library uses *QtPy* to support PySide or PyQt.
         btn = QtWidgets.QPushButton(rsc.QIcon(':/check_lib/check_sub/document-new.png'), 'QFile alias ":/check_lib/check_sub/document-new.png"', None)
         widg.layout().addWidget(btn)
 
+        # Use Qt QResource File name alias
+        btn = QtWidgets.QPushButton(rsc.QIcon('data_resource'), 'data_resource', None)
+        widg.layout().addWidget(btn)
+
         # Use Qt QResource File name alias - DOES NOT WORK! CAN ONLY USE QRC ALIAS IDENTIFIER!
         # btn = QtWidgets.QPushButton(rsc.QIcon(':/check_lib/check_sub/document-new.png'),
         #                                   '":/check_lib/check_sub/document-new.png"', None)
@@ -385,7 +391,11 @@ This library uses *QtPy* to support PySide or PyQt.
         try:
             # QSvg Cannot load png images. This will be blank
             invalid = rsc.QSvgWidget("check_lib/check_sub/document-new.png")
-            hlay.addWidget(invalid)
+            w = QtWidgets.QWidget()
+            w.setLayout(QtWidgets.QVBoxLayout())
+            w.layout().addWidget(QtWidgets.QLabel('QSvgWidget NO PNG'))
+            w.layout().addWidget(invalid)
+            hlay.addWidget(w)
         except (rsc.ResourceNotAvailable, OSError, TypeError) as err:
             pass
         try:

@@ -13,8 +13,8 @@ except (ImportError, Exception):
 
 __all__ = [
     'ResourceNotAvailable', 'Resource', 'ResourceManager', 'get_global_manager', 'set_global_manager', 'temp_manager',
-    'add_manager', 'remove_manager', 'clear', 'register', 'register_directory', 'unregister', 'has_resource',
-    'get_resources', 'get_resource', 'get_binary', 'get_text',
+    'add_manager', 'remove_manager', 'clear', 'register', 'register_data', 'register_directory', 'unregister',
+    'has_resource', 'get_resources', 'get_resource', 'get_binary', 'get_text',
     'MISSING'
     ]
 
@@ -24,7 +24,7 @@ class ResourceNotAvailable(Exception):
 
 
 class Resource:
-    def __init__(self, package, name, alias=MISSING, manager=None, **kwargs):
+    def __init__(self, package, name, alias=MISSING, manager=None, data=None, **kwargs):
         """Initialize the resource object.
 
         Args:
@@ -34,12 +34,14 @@ class Resource:
                 ... (Ellipsis) will be the name with the extension (EX: "myimg.png")
                 None will be the name without the extension (EX: "myimg")
             manager (ResourceManager)[None]: Manager that holds this object.
+            data (bytes/object)[None]: Stored or read in data.
             **kwargs (dict): Dictionary of keyword arguments to set as resource attributes.
         """
         self.manager = manager
         self.raw_alias = alias
         self.package = package
         self.name = name
+        self.data = data
         self._context = None
         self._context_obj = None
 
@@ -74,23 +76,51 @@ class Resource:
     identifier = alias
 
     def is_resource(self):
-        return is_resource(self.package, self.name)
+        """Return if this resource is file based.
+
+        This is mainly used for collecting data files. Resource's that were given data with fake packages and
+        names will return False.
+        """
+        try:
+            return is_resource(self.package, self.name)
+        except (AttributeError, TypeError, ValueError):
+            return False
 
     def files(self):
-        return files(self.package).joinpath(self.name)
+        try:
+            return files(self.package).joinpath(self.name)
+        except (AttributeError, TypeError, ValueError):
+            return self.package_path
 
     @contextlib.contextmanager
     def as_file(self):
-        with as_file(self.files()) as file:
-            yield file
+        f = self.files()
+        try:
+            with as_file(f) as file:
+                yield file
+        except (ValueError, TypeError, Exception) as err:
+            package_path = self.package_path
+            if os.path.exists(str(package_path)):
+                yield f
+            else:
+                raise err
 
     def contents(self):
-        return contents(self.package)
+        try:
+            return contents(self.package)
+        except (ValueError, TypeError, Exception):
+            return []
 
     def read_bytes(self):
+        if isinstance(self.data, bytes):
+            return self.data
+        elif isinstance(self.data, str):
+            return self.data.encode('utf-8')
+
         error = None
         try:
-            return read_binary(self.package, self.name)
+            self.data = read_binary(self.package, self.name)
+            return self.data
         except Exception as err:
             error = err
         raise ResourceNotAvailable(str(error))
@@ -98,9 +128,15 @@ class Resource:
     read_binary = read_bytes
 
     def read_text(self, encoding='utf-8', errors='strict'):
+        if isinstance(self.data, str):
+            return self.data
+        elif isinstance(self.data, bytes):
+            return self.data.decode(encoding, errors)
+
         error = None
         try:
-            return read_text(self.package, self.name, encoding, errors)
+            self.data = read_text(self.package, self.name, encoding, errors)
+            return self.data
         except Exception as err:
             error = err
         raise ResourceNotAvailable(str(error))
@@ -242,6 +278,24 @@ class ResourceManager(list):
         if 'manager' not in kwargs:
             kwargs['manager'] = self
         rsc = self.RESOURCE_CLASS(package, name, alias=alias, **kwargs)
+        self.append(rsc)
+        return rsc
+
+    def register_data(self, data, package, name, alias=MISSING, **kwargs):
+        """Register a plain data resource.
+
+        Args:
+            data (bytes/str/object)[None]: Plain data to store.
+            package (str)[None]: Package name ('check_lib.check_sub')
+            name (str)[None]: Name of the resource ('edit-cut.png')
+            alias (str)[MISSING]: Shortcut alias name identifer for the resource.
+                ... (Ellipsis) will be the name with the extension (EX: "myimg.png")
+                None will be the name without the extension (EX: "myimg")
+            **kwargs (dict): Dictionary of keyword arguments to set as attributes to the resource.
+        """
+        if 'manager' not in kwargs:
+            kwargs['manager'] = self
+        rsc = self.RESOURCE_CLASS(package=package, name=name, alias=alias, data=data, **kwargs)
         self.append(rsc)
         return rsc
 
@@ -438,6 +492,21 @@ def register(package, name, alias=MISSING, **kwargs):
         **kwargs (dict): Dictionary of keyword arguments to set as attributes to the resource.
     """
     return get_global_manager().register(package, name, alias=alias, **kwargs)
+
+
+def register_data(data, package, name, alias=MISSING, **kwargs):
+    """Register a plain data resource.
+
+    Args:
+        data (bytes/str/object)[None]: Plain data to store.
+        package (str)[None]: Package name ('check_lib.check_sub')
+        name (str)[None]: Name of the resource ('edit-cut.png')
+        alias (str)[MISSING]: Shortcut alias name identifer for the resource.
+            ... (Ellipsis) will be the name with the extension (EX: "myimg.png")
+            None will be the name without the extension (EX: "myimg")
+        **kwargs (dict): Dictionary of keyword arguments to set as attributes to the resource.
+    """
+    return get_global_manager().register_data(data, package, name, alias=alias, **kwargs)
 
 
 def register_directory(package, extensions=None, exclude=None, **kwargs):
