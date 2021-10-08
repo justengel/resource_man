@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 import importlib
 from contextlib import contextmanager
+from collections import OrderedDict
 from dynamicmethod import dynamicmethod
 from qtpy import API_NAME, QtCore, QtGui, QtSvg
 
@@ -13,7 +14,8 @@ from resource_man.importlib_interface import \
     READ_API, FILES_API, Traversable, contents, is_resource, read_binary, read_text, files, as_file
 from resource_man.interface import \
     ResourceNotAvailable, Resource, ResourceManager, get_global_manager, set_global_manager, temp_manager, \
-    clear, register, register_directory, unregister, has_resource, get_resources, get_resource, get_binary, get_text, \
+    add_manager, remove_manager, clear, register, register_directory, unregister, has_resource, \
+    get_resources, get_resource, get_binary, get_text, \
     MISSING
 
 
@@ -28,17 +30,44 @@ except (ValueError, Exception):
 
 
 __all__ = [
-    'get_file', 'QPixmap', 'QIcon', 'QSvgWidget', 'create_qrc', 'compile_qrc', 'create_compiled', 'load_resource',
+    'QFile', 'QPixmap', 'QIcon', 'QSvgWidget', 'create_qrc', 'compile_qrc', 'create_compiled', 'load_resource',
     'compiled_py_to_qtpy',
 
     'READ_API', 'FILES_API', 'Traversable', 'contents', 'is_resource', 'read_binary', 'read_text', 'files', 'as_file',
 
     'ResourceNotAvailable', 'Resource', 'ResourceManager', 'get_global_manager', 'set_global_manager', 'temp_manager',
-    'clear', 'register', 'register_directory', 'unregister', 'has_resource', 'get_resources', 'get_resource',
-    'get_binary', 'get_text',
+    'add_manager', 'remove_manager', 'clear', 'register', 'register_directory', 'unregister', 'has_resource',
+    'get_resources', 'get_resource', 'get_binary', 'get_text',
     'MISSING',
     '__version__'
     ]
+
+
+class _ResourceExt(Resource):
+    @property
+    def qt_name(self):
+        """Return the shortcut name used in the compiled qrc file.
+        This is not a part of the standard api and should not be used.
+        """
+        prefix = getattr(getattr(self, 'manager', None), 'prefix', None)
+        if prefix:
+            return ':/{prefix}/{alias}'.format(prefix=prefix, alias=self.alias)
+        return ':/' + self.alias
+
+    def __eq__(self, other):
+        if isinstance(other, str):
+            return other == self.qt_name or other == self.alias or other == self.package_path
+        return super().__eq__(other)
+
+
+# Override Resource methods and properties to work like ResourceExt
+Resource.qt_name = _ResourceExt.qt_name
+Resource.__eq__ = _ResourceExt.__eq__  # This will help ResourceManager.has_resource and get_resource
+
+
+QtCore_QFile = QtCore.QFile
+QtGui_QIcon = QtGui.QIcon
+QtGui_QPixmap = QtGui.QPixmap
 
 
 def get_file(name, return_bytes=True, extension=None):
@@ -56,53 +85,218 @@ def get_file(name, return_bytes=True, extension=None):
             If unable to find the filename and return_bytes is False return the Traversable (Path) object.
             If not found or the filename does not have the proper extension return ''.
     """
-    if isinstance(name, bytes):
-        return name
-    elif isinstance(name, Traversable):
-        has_extension = extension is None or os.path.splitext(str(name))[-1].lower() == extension.lower()
-        if has_extension:
-            if return_bytes:
-                return name.read_bytes()
-            return name  # Returning Traversable
-        return ''
+    file = QFile(name)
+    if extension is not None and file.extension() != extension:
+        return None
+    filename = file.fileName()
+    if filename is not None:
 
-    # Try to create the icon from the Qt name
-    try:
-        has_extension = extension is None or os.path.splitext(str(name))[-1].lower() == extension.lower()
-        if has_extension:
-            if QtCore.QFile.exists(name):
-                return name
-
-            qt_name = ':/' + name
-            if QtCore.QFile.exists(qt_name):
-                return qt_name
-    except (ResourceNotAvailable, TypeError, ValueError, Exception):
-        pass
-
-    # Try to create the icon from the registered resource name
-    try:
-        resource = get_resource(name)
-        has_extension = extension is None or os.path.splitext(str(resource.name))[-1].lower() == extension.lower()
-        if has_extension:
-            rsc_name = resource.alias
-            qt_name = ':/' + rsc_name
-            if QtCore.QFile.exists(rsc_name):
-                return rsc_name
-            elif QtCore.QFile.exists(qt_name):
-                return qt_name
-
-            # Last resort return the binary.
-            if return_bytes:
-                return resource.read_bytes()
-            return resource.files()  # Returning Traversable
-    except (ResourceNotAvailable, TypeError, ValueError, OSError, ImportError, Exception):
-        pass
-
-    return ''
+        return filename
+    elif return_bytes:
+        return file.read_bytes()
 
 
-QtGui_QIcon = QtGui.QIcon
-QtGui_QPixmap = QtGui.QPixmap
+class QFile(QtCore_QFile):
+    def __new__(cls, name=None, parent=None):
+        if isinstance(name, QtCore.QObject):
+            parent = name
+            name = None
+
+        obj = QtCore_QFile.__new__(cls, 'None', parent)
+        obj._byts = None
+        obj._filename = None
+        obj._resource = None
+        obj.given_name = name
+
+        return obj
+
+    def __init__(self, name=None, parent=None):
+        super().__init__()
+
+        if isinstance(name, QFile):  # This class
+            self._byts = getattr(self, '_byts', None)
+            self._filename = getattr(self, '_filename', None)
+            self._resource = getattr(self, '_resource', None)
+            self.given_name = getattr(self, 'given_name', None)
+        elif isinstance(name, (bytes, str, Resource, Traversable, Path)):
+            self.setFileName(name)
+
+        # name = self.given_name
+        # byts = self._byts
+        # filename = self._filename
+        # resource = self._resource
+
+    # ===== QFile methods =====
+    @dynamicmethod
+    def exists(self, name=None):
+        if isinstance(self, QtCore_QFile):
+            if self._byts:
+                return True
+
+            has_resource = self._resource and (QtCore_QFile.exists(self._resource.qt_name) or
+                                               self._resource.is_resource())
+            has_filename = self._filename and QtCore_QFile.exists(self._filename)
+            return has_resource or has_filename or super(QFile, self).exists()
+        return type(self)(name).exists()
+
+    def basename(self):
+        """Return the resource basename."""
+        try:
+            if self._resource:
+                return self._resource.name
+            return os.path.basename(self._filename)
+        except (TypeError, ValueError):
+            return ''
+
+    def extension(self):
+        """Return the extension of the resource name or filename."""
+        ext = os.path.splitext(self.basename())[-1]
+        return ext
+
+    def fileName(self):
+        return self._filename
+
+    def setFileName(self, name):
+        self._filename = None
+        self._byts = None
+        self._resource = None
+        if isinstance(name, bytes):
+            self._byts = name
+        elif isinstance(name, Resource):
+            self._resource = name
+            self._filename = str(self._resource)
+            self._byts = self._resource.read_bytes()
+        elif isinstance(name, Traversable):
+            self._byts = name.read_bytes()
+        else:
+            # Try to create the icon from the Qt name
+            str_name = str(name)
+
+            # Try to create the icon from the registered resource name
+            try:
+                self._resource = get_resource(str_name)
+                if self._filename is None:
+                    if QtCore_QFile.exists(self._resource.alias):
+                        self._filename = self._resource.alias
+                    elif QtCore_QFile.exists(self._resource.qt_name):
+                        self._filename = self._resource.qt_name
+
+                    # Try reading the binary data
+                    self._byts = self._resource.read_bytes()
+            except (ResourceNotAvailable, TypeError, ValueError, OSError, ImportError, Exception):
+                pass
+
+            # Try to find the filename from the qt_name
+            try:
+                if self._filename is None:
+                    qt_name = ':/' + str_name
+                    if QtCore_QFile.exists(str_name):
+                        self._filename = str_name
+                    elif QtCore_QFile.exists(qt_name):
+                        self._filename = qt_name
+            except (ResourceNotAvailable, TypeError, ValueError, Exception):
+                pass
+
+        if self._filename is None:
+            return super(QFile, self).setFileName('None')
+        else:
+            return super(QFile, self).setFileName(self._filename)
+
+    def rename(self, newName):
+        ret = super(QFile, self).rename(newName)
+        if ret:
+            self._filename = newName
+        return ret
+
+    # ===== QBuffer methods =====
+    def data(self):
+        if self.byts is not None:
+            return QtCore.QByteArray(self.byts)
+        return QtCore.QByteArray()
+
+    def setData(self, data):
+        self.byts = None
+        if data is not None:
+            self.byts = bytes(data)
+
+    buffer = data
+    setBuffer = setData
+
+    # ===== Resource methods =====
+    @property
+    def package(self):
+        """Return the resource package."""
+        try:
+            return self._resource.package
+        except (AttributeError, Exception):
+            return None
+
+    @property
+    def name(self):
+        """Return the resource name."""
+        try:
+            return self._resource.name
+        except (AttributeError, Exception):
+            return None
+
+    @property
+    def package_path(self):
+        """Return the package and name path of the resource."""
+        try:
+            return self._resource.package_path
+        except (AttributeError, Exception):
+            return ''
+
+    @property
+    def alias(self):
+        """Return the alias name identifier."""
+        try:
+            return self._resource.alias
+        except (AttributeError, Exception):
+            return self.fileName()
+
+    # Backwards compatibility support
+    identifier = alias
+
+    def is_resource(self):
+        try:
+            return self._resource.is_resource()
+        except (AttributeError, Exception):
+            return False
+
+    def files(self):
+        return self._resource.files()
+
+    @contextmanager
+    def as_file(self):
+        with as_file(self.files()) as file:
+            yield file
+
+    def contents(self):
+        return self._resource.contents()
+
+    def read_bytes(self):
+        """Return the read bytes."""
+        if self._byts is None and self._resource is not None:
+            self._byts = self._resource.read_bytes()
+        elif self._byts is None and self._filename is not None:
+            try:
+                with open(self._filename, 'rb') as f:
+                    self._byts = f.read()
+            except OSError:
+                if self._filename.startswith(':/'):
+                    if self.open(self.ReadOnly | self.Text):
+                        self._byts = bytes(self.readAll())
+                        self.close()
+
+        if self._byts is None:
+            raise ResourceNotAvailable('Invalid resource!')
+        return self._byts
+
+    read_binary = read_bytes
+
+    def read_text(self, encoding='utf-8', errors='strict'):
+        return self.read_bytes().decode(encoding, errors)
 
 
 class QPixmap(QtGui_QPixmap):
@@ -114,12 +308,10 @@ class QPixmap(QtGui_QPixmap):
         load_data = None
         if len(args) >= 1 and isinstance(args[0], (Resource, str, bytes, Traversable)):
             # Try to find filename, Qt File, or importlib.resources read resource bytes.
-            data_file = get_file(args[0], return_bytes=True, extension=None)
-            if isinstance(data_file, str):
-                args = (data_file,) + args[1:]
-            elif isinstance(data_file, bytes):
-                load_data = data_file
-                args = ('',) + args[1:]
+            file = QFile(args[0])
+            args = ('',) + args[1:]
+            if file.exists():
+                load_data = file.read_bytes()
 
         super(QPixmap, self).__init__(*args, **kwargs)
 
@@ -140,13 +332,11 @@ class QIcon(QtGui_QIcon):
                 is_valid = True
             elif isinstance(args[0], (Resource, str, bytes, Traversable)):
                 # Try to find filename, Qt File, or importlib.resources read resource bytes.
-                data_file = get_file(args[0], return_bytes=True, extension=None)
-                if isinstance(data_file, str):
-                    args = (data_file,) + args[1:]
-                    is_valid = True
-                elif isinstance(data_file, bytes):
+                file = QFile(args[0])
+                args = ('',) + args[1:]
+                if file.exists():
                     pixmap = QtGui_QPixmap()
-                    pixmap.loadFromData(data_file)
+                    pixmap.loadFromData(file.read_bytes())
                     args = (pixmap, ) + args[1:]
                     is_valid = True
 
@@ -174,12 +364,10 @@ class QSvgWidget(QtSvg.QSvgWidget):
         load_data = None
         if len(args) >= 1 and isinstance(args[0], (Resource, str, bytes, Traversable)):
             # Try to find filename, Qt File, or importlib.resources read resource bytes.
-            data_file = get_file(args[0], return_bytes=True, extension='.svg')
-            if isinstance(data_file, str):
-                args = (data_file,) + args[1:]
-            elif isinstance(data_file, bytes):
-                load_data = data_file
-                args = ('',) + args[1:]
+            file = QFile(args[0])
+            args = ('',) + args[1:]
+            if file.exists() and file.extension().lower() == '.svg':
+                load_data = file.read_bytes()
 
         super(QSvgWidget, self).__init__(*args, **kwargs)
 
@@ -238,19 +426,38 @@ def create_qrc(filename="resource_man_compiled_resources.qrc", prefix='', resour
             main_module = os.path.splitext(os.path.basename(main_module))[0]
         importlib.import_module(main_module)
 
+    # Get all managers according to their prefix
+    managers = OrderedDict([(None, [])])
+    prefix = prefix or getattr(resource_manager, 'prefix', None) or None
+    try:
+        managers[prefix].append(resource_manager)
+    except (KeyError, AttributeError, Exception):
+        managers[prefix] = [resource_manager]
+    for man in resource_manager.managers:
+        prefix = getattr(man, 'prefix', None) or None
+        try:
+            managers[prefix].append(man)
+        except (KeyError, AttributeError, Exception):
+            managers[prefix] = [man]
+
     # Create the QRC File
     text = ['<!DOCTYPE RCC><RCC version="1.0">']
-    if prefix:
-        text.append('<qresource prefix="{}">'.format(prefix))
-    else:
-        text.append('<qresource>')
 
-    for resource in resource_manager.get_resources():
-        if resource.is_resource():
-            with resource.as_file() as rsc_file:
-                text.append('\t<file alias="{}">{}</file>'.format(resource.alias, os.path.relpath(str(rsc_file))))
+    for prefix, mans in managers.items():
+        if prefix:
+            text.append('<qresource prefix="{}">'.format(prefix))
+        else:
+            text.append('<qresource>')
 
-    text.append('</qresource>')
+        for man in mans:
+            for resource in man.get_resources():
+                if resource.is_resource():
+                    with resource.as_file() as rsc_file:
+                        path = os.path.relpath(str(rsc_file))
+                        text.append('\t<file alias="{}">{}</file>'.format(resource.alias, path))
+
+        text.append('</qresource>')
+
     text.append('</RCC>')
 
     with open(filename, "w") as file:
