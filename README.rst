@@ -8,7 +8,7 @@ Standard Resource Functions
   * files - importlib.resources files this function is the standard for retrieving resources for Python 3.9+
   * as_file - context manager for retrieving a true filepath for Python 3.9+.
   * read_binary - Return the bytes found in the package with the given basename.
-  * read_text - Return the text found in the pakcage with the given basename.
+  * read_text - Return the text found in the package with the given basename.
   * contents - Return an iterable of basenames in the given package.
   * is_resource - Return if the given package, basename exists.
 

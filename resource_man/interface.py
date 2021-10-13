@@ -456,7 +456,7 @@ class ResourceManager(list, ResourceManagerInterface):
                 if rsc == item:
                     return rsc
 
-        raise ResourceNotAvailable("The requested resouce was not found!")
+        raise ResourceNotAvailable("The requested resource was not found!")
 
     def __setitem__(self, key, value):
         if isinstance(key, int):
