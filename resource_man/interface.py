@@ -98,8 +98,10 @@ class Resource:
         f = self.files()
         try:
             with as_file(f) as file:
+                if not os.path.exists(str(file)):
+                    raise FileNotFoundError('The file does not exist!')
                 yield file
-        except (ValueError, TypeError, Exception) as err:
+        except (ValueError, TypeError, FileNotFoundError, Exception) as err:
             package_path = self.package_path
             if os.path.exists(str(package_path)):
                 yield f

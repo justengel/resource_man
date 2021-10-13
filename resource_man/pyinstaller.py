@@ -49,7 +49,7 @@ def registered_datas(resource_manager=None):
     for resource in resource_manager.get_resources():
         if resource.is_resource():
             with resource.as_file() as rsc_file:
-                data = (os.path.relpath(str(rsc_file)), os.path.dirname(resource.package_path))
+                data = (os.path.relpath(str(rsc_file)), resource.package_path)
                 datas.append(data)
 
     return datas

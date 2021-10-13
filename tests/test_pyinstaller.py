@@ -21,8 +21,8 @@ def test_registered_datas():
 
     datas = registered_datas()
 
-    assert (os.path.relpath(str(rsc.files())), os.path.dirname(rsc.package_path)) in datas
-    assert (os.path.relpath(str(rsc2.files())), os.path.dirname(rsc2.package_path)) in datas
+    assert (os.path.relpath(str(rsc.files())), rsc.package_path) in datas
+    assert (os.path.relpath(str(rsc2.files())), rsc2.package_path) in datas
 
 
 if __name__ == '__main__':
