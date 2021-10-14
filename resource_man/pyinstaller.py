@@ -14,45 +14,22 @@ from resource_man.interface import \
     ResourceNotAvailable, Resource, ResourceManagerInterface, ResourceManager, \
     get_global_manager, set_global_manager, temp_manager, add_manager, remove_manager, clear, \
     register, register_data, register_directory, unregister, has_resource, \
-    get_resources, get_resource, get_binary, get_text, \
+    get_resources, get_resource, get_binary, get_text, registered_datas, \
     MISSING
 
 
 __all__ = [
-    'registered_datas', 'find_datas', 'EXCLUDE_EXT', 'SOURCE_SUFFIXES',
+    'find_datas', 'EXCLUDE_EXT', 'SOURCE_SUFFIXES',
 
     'READ_API', 'FILES_API', 'Traversable', 'contents', 'is_resource', 'read_binary', 'read_text', 'files', 'as_file',
 
     'ResourceNotAvailable', 'Resource', 'ResourceManagerInterface', 'ResourceManager',
     'get_global_manager', 'set_global_manager', 'temp_manager', 'add_manager', 'remove_manager',
     'clear', 'register', 'register_data', 'register_directory', 'unregister',
-    'has_resource', 'get_resources', 'get_resource', 'get_binary', 'get_text',
+    'has_resource', 'get_resources', 'get_resource', 'get_binary', 'get_text', 'registered_datas',
     'MISSING',
     '__version__'
     ]
-
-
-def registered_datas(resource_manager=None):
-    """Return a list of datas that were registered.
-
-    Args:
-        resource_manager (ResourceManager)[None]: Resource manger to use. If None use default global ResourceManager.
-
-    Returns:
-        datas (list): List of (existing file path, rel install path).
-    """
-    if resource_manager is None:
-        resource_manager = get_global_manager()
-
-    datas = []
-
-    for resource in resource_manager.get_resources():
-        if resource.is_resource():
-            with resource.as_file() as rsc_file:
-                data = (os.path.relpath(str(rsc_file)), resource.package_path)
-                datas.append(data)
-
-    return datas
 
 
 EXCLUDE_EXT = SOURCE_SUFFIXES + ['.pyc', '.pyd']

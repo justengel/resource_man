@@ -43,13 +43,40 @@ except (ImportError, Exception):
 
 
 __all__ = [
-    'READ_API', 'FILES_API', 'Traversable', 'contents', 'is_resource', 'read_binary', 'read_text', 'files', 'as_file',
+    'READ_API', 'FILES_API', 'EXE_PATH',
+    'Traversable', 'contents', 'is_resource', 'read_binary', 'read_text', 'files', 'as_file',
     'rsc_files', 'rsc_as_file', 'rsc_read_binary', 'rsc_read_text', 'rsc_contents', 'rsc_is_resource'
     ]
 
 
+EXE_PATH = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+
+if not hasattr(Traversable, 'read_bytes'):
+    def path_read_bytes(self):
+        with open(str(self), 'rb') as f:
+            return f.read()
+
+    Traversable.read_bytes = path_read_bytes
+
+if not hasattr(Traversable, 'read_text'):
+    def path_read_text(self, encoding='utf-8', errors='strict'):
+        with open(str(self), 'r', encoding=encoding, errors=errors) as f:
+            return f.read()
+
+    Traversable.read_text = path_read_text
+
+
 def rsc_files(module):
     if isinstance(module, str):
+        # Check for the executable path
+        if getattr(sys, 'frozen', False):
+            path = Path(EXE_PATH) / module.replace('.', '/')
+            if path.with_suffix('').name == '__init__':
+                path = path.parent
+            if path.exists():
+                return path
+
+        # Find the module path from the imported module
         if '.' in module:
             # Import the top level package and manually add a directory for each "."
             toplvl, remain = module.split('.', 1)
@@ -85,10 +112,12 @@ def rsc_files(module):
 @contextlib.contextmanager
 def rsc_as_file(path):
     p = path
+
+    # Find this path from the executable
     if (isinstance(p, str) and not os.path.exists(p)) or (isinstance(p, (Path, Traversable)) and not p.exists()):
-        p = os.path.join(getattr(sys, '_MEIPASS', os.path.dirname(sys.executable)), str(path))
+        p = os.path.join(EXE_PATH, str(path))
     if (isinstance(p, str) and not os.path.exists(p)) or (isinstance(p, (Path, Traversable)) and not p.exists()):
-        p = os.path.join(getattr(sys, '_MEIPASS', os.path.dirname(sys.executable)), '', str(path))
+        p = os.path.join(EXE_PATH, '', str(path))
 
     yield Path(p)  # Documentation says should be Path object, but I noticed it was a string.
 
@@ -122,9 +151,11 @@ def rsc_is_resource(package, name):
 
     Directories are *not* resources.
     """
-    package = files(package)
-    if package.joinpath(name).exists() and not package.joinpath(name).is_dir():
+    pkg = files(package)
+    path = pkg.joinpath(name)
+    if path.exists() and not path.is_dir():
         return True
+
     try:
         package_contents = set(contents(package))
     except (NotADirectoryError, FileNotFoundError):
@@ -134,7 +165,7 @@ def rsc_is_resource(package, name):
     # Just because the given file_name lives as an entry in the package's
     # contents doesn't necessarily mean it's a resource.  Directories are not
     # resources, so let's try to find out if it's a directory or not.
-    path = Path(package.__spec__.origin).parent / name
+    path = Path(pkg.__spec__.origin).parent / name
     return path.is_file()
 
 
@@ -143,6 +174,7 @@ if read_text is None:
     read_binary = rsc_read_binary
     contents = rsc_contents
     is_resource = rsc_is_resource
+    Traversable = Path
 
 if files is None:
     files = rsc_files

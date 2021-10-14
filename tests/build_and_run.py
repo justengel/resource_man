@@ -1,12 +1,24 @@
 import os
+import subprocess
 import sys
 import shutil
 import time
 import contextlib
-from subprocess import run
+try:
+    from subprocess import run
+except (ImportError, Exception):
+    from subprocess import Popen
+
+    def run(*args, check=False, **kwargs):
+        proc = Popen(*args, **kwargs)
+        proc.wait()
+        if check and proc.returncode != 0:
+            raise RuntimeError('The program failed to run properly')
+        return proc
 
 
-SHELL = {'shell': True, 'check': True, 'stdout': sys.stdout, 'stderr': sys.stderr}
+SHELL = {'shell': True, 'stdout': sys.stdout, 'stderr': sys.stderr,
+         'check': True, }
 os.chdir(os.path.dirname(__file__))
 
 
@@ -100,10 +112,14 @@ def pyinstaller_exe(main_module, run_hook=True, delete_build=True, **kwargs):
 def cxfreeze_exe(main_module, **kwargs):
     main_name = os.path.splitext(main_module)[0]
 
-    args = ['cxfreeze', main_module, '--target-dir', 'dist/{0}'.format(main_name),
-            '--excludes', 'tcl,ttk,tkinter', ]
-            # This will stop importlib.resources from working. Unless you include data files in the zip
-            # '--zip-include-packages', 'check_lib']
+    # Python 3.4
+    if sys.version_info < (3, 5):
+        args = ['python', 'freeze.py', 'build']
+    else:
+        args = ['cxfreeze', main_module, '--target-dir', 'dist/{0}'.format(main_name),
+                '--excludes', 'tcl,ttk,tkinter', ]
+                # This will stop importlib.resources from working. Unless you include data files in the zip
+                # '--zip-include-packages', 'check_lib']
 
     print('Create Cx_Freeze Executable')
     run(args, **SHELL)
@@ -132,12 +148,12 @@ if __name__ == '__main__':
     # with compile_qt_qrc(MAIN_MODULE, run_two_cmds=True, delete_compiled=False):
     #     pass
 
-    with compile_qt_qrc(MAIN_MODULE, run_two_cmds=True, delete_compiled=False, use_import=True):
+    with compile_qt_qrc(MAIN_MODULE, run_two_cmds=True, delete_compiled=True, use_import=True):
         with pyinstaller_exe(main_module=MAIN_MODULE, run_hook=True, delete_build=True):
-            run_exe(main_module=MAIN_MODULE)
+            run_exe(main_module=MAIN_MODULE, delete_dist=True)
 
-    with compile_qt_qrc(MAIN_MODULE, run_two_cmds=True, delete_compiled=False, use_import=True):
+    with compile_qt_qrc(MAIN_MODULE, run_two_cmds=True, delete_compiled=True, use_import=True):
         with cxfreeze_exe(main_module=MAIN_MODULE):
-            run_exe(main_module=MAIN_MODULE)
+            run_exe(main_module=MAIN_MODULE, delete_dist=True)
 
     print('All checks ran successfully!')

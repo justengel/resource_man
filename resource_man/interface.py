@@ -3,7 +3,7 @@ import sys
 import copy
 import atexit
 import contextlib
-from .importlib_interface import Traversable, contents, is_resource, read_binary, read_text, files, as_file
+from .importlib_interface import EXE_PATH, Traversable, contents, is_resource, read_binary, read_text, files, as_file
 
 try:
     from dataclasses import MISSING
@@ -15,7 +15,7 @@ __all__ = [
     'ResourceNotAvailable', 'Resource', 'ResourceManagerInterface', 'ResourceManager',
     'get_global_manager', 'set_global_manager', 'temp_manager', 'add_manager', 'remove_manager',
     'clear', 'register', 'register_data', 'register_directory', 'unregister',
-    'has_resource', 'get_resources', 'get_resource', 'get_binary', 'get_text',
+    'has_resource', 'get_resources', 'get_resource', 'get_binary', 'get_text', 'registered_datas',
     'MISSING'
     ]
 
@@ -88,23 +88,30 @@ class Resource:
             return False
 
     def files(self):
+        # try:
+        #     package_path = self.package_path
+        #     exe_package_path = os.path.join(os.path.dirname(sys.executable), package_path)
+        #     if os.path.exists(package_path):
+        #         return Traversable(package_path)
+        #     elif os.path.exists(exe_package_path):
+        #         return Traversable(exe_package_path)
+        # except (AttributeError, TypeError, ValueError, Exception):
+        #     pass
         try:
             return files(self.package).joinpath(self.name)
         except (AttributeError, TypeError, ValueError):
-            return self.package_path
+            return Traversable(self.package_path)
 
     @contextlib.contextmanager
     def as_file(self):
         f = self.files()
         try:
             with as_file(f) as file:
-                if not os.path.exists(str(file)):
-                    raise FileNotFoundError('The file does not exist!')
                 yield file
         except (ValueError, TypeError, FileNotFoundError, Exception) as err:
-            package_path = self.package_path
-            if os.path.exists(str(package_path)):
-                yield f
+            package_path = str(self.package_path)
+            if os.path.exists(package_path):
+                yield package_path
             else:
                 raise err
 
@@ -124,7 +131,7 @@ class Resource:
         try:
             self.data = read_binary(self.package, self.name)
             return self.data
-        except Exception as err:
+        except (AttributeError, TypeError, OSError, Exception) as err:
             error = err
         raise ResourceNotAvailable(str(error))
 
@@ -140,7 +147,7 @@ class Resource:
         try:
             self.data = read_text(self.package, self.name, encoding, errors)
             return self.data
-        except Exception as err:
+        except (AttributeError, TypeError, OSError, Exception) as err:
             error = err
         raise ResourceNotAvailable(str(error))
 
@@ -189,7 +196,9 @@ class Resource:
         # Return the simple package path from the working directory.
         pp = orig_pp = str(self.package_path)
         if not os.path.exists(pp):
-            pp = os.path.join(getattr(sys, '_MEIPASS', sys.executable), pp)
+            pp = os.path.join(EXE_PATH, pp)
+            if not os.path.exists(pp):
+                pp = os.path.join(EXE_PATH, '', pp)
             if not os.path.exists(pp):
                 pp = orig_pp
         return pp
@@ -643,3 +652,32 @@ def get_text(rsc, fallback=None, default=MISSING, encoding='utf-8', errors='stri
         text (str): Text data that was read.
     """
     return get_global_manager().get_text(rsc, fallback=fallback, default=default, encoding=encoding, errors=errors)
+
+
+def registered_datas(resource_manager=None, use_dest_dirs=True):
+    """Return a list of datas that were registered.
+
+    Args:
+        resource_manager (ResourceManager)[None]: Resource manger to use. If None use default global ResourceManager.
+        use_dest_dirs (bool)[True]: If True the destination will be a directory. If False the dest will be the filename.
+
+    Returns:
+        datas (list): List of (existing file path, rel install path).
+    """
+    if resource_manager is None:
+        resource_manager = get_global_manager()
+
+    datas = []
+
+    for man in [resource_manager] + resource_manager.managers:
+        for resource in man.get_resources():
+            if resource.is_resource():
+                with resource.as_file() as rsc_file:
+                    package_path = str(resource.package_path)
+                    if use_dest_dirs:
+                        package_path = os.path.dirname(package_path)
+                    data = (os.path.relpath(str(rsc_file)), package_path)
+                    if data not in datas:
+                        datas.append(data)
+
+    return datas

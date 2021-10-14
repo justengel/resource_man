@@ -1,4 +1,5 @@
 import check_lib.check_sub
+import sys
 from qtpy import QtWidgets, QtCore
 import resource_man.qt as rsc
 
@@ -23,7 +24,10 @@ if __name__ == '__main__':
     widg.setLayout(QtWidgets.QVBoxLayout())
 
     # Use the Resource as the Path. This is not recommended. Use 'as_file' or 'read_text'.
-    with open(DOCUMENT_NEW, 'rb') as f:  # Need str for some objects QtCore.QFile(str(DOCUMENT_NEW))
+    doc_new_path = DOCUMENT_NEW
+    if sys.version_info < (3, 5):
+        doc_new_path = str(doc_new_path)
+    with open(doc_new_path, 'rb') as f:  # Need str for some objects QtCore.QFile(str(DOCUMENT_NEW))
         assert len(f.read()) > 0
 
     # Resource file (Must be compiled and loaded)

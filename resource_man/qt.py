@@ -1,13 +1,24 @@
 import os
 import sys
 import argparse
-import subprocess
 from pathlib import Path
 import importlib
 from contextlib import contextmanager
 from collections import OrderedDict
 from dynamicmethod import dynamicmethod
 from qtpy import API_NAME, QtCore, QtGui, QtSvg
+
+try:
+    from subprocess import run
+except (ImportError, Exception):
+    from subprocess import Popen
+
+    def run(*args, check=False, **kwargs):
+        proc = Popen(*args, **kwargs)
+        proc.wait()
+        if check and proc.returncode != 0:
+            raise RuntimeError('The program failed to run properly')
+        return proc
 
 from resource_man.__meta__ import version as __version__
 from resource_man.importlib_interface import \
@@ -16,12 +27,16 @@ from resource_man.interface import \
     ResourceNotAvailable, Resource, ResourceManagerInterface, ResourceManager, \
     get_global_manager, set_global_manager, temp_manager, add_manager, remove_manager, \
     clear, register, register_data, register_directory, unregister, has_resource, \
-    get_resources, get_resource, get_binary, get_text, \
+    get_resources, get_resource, get_binary, get_text, registered_datas, \
     MISSING
 
 
+is_py2 = sys.version_info < (3, 0)
+
 # Qt rcc compiler path
 QT_RCC_BIN = files(API_NAME).joinpath('rcc.exe')
+if not QT_RCC_BIN.exists():
+    QT_RCC_BIN = files(API_NAME).joinpath(API_NAME.lower() + '-rcc.exe')
 try:
     if 'PyQt' in API_NAME:
         # pyrcc5 binary
@@ -39,7 +54,7 @@ __all__ = [
     'ResourceNotAvailable', 'Resource', 'ResourceManagerInterface', 'ResourceManager',
     'get_global_manager', 'set_global_manager', 'temp_manager', 'add_manager', 'remove_manager',
     'clear', 'register', 'register_data', 'register_directory', 'unregister',
-    'has_resource', 'get_resources', 'get_resource', 'get_binary', 'get_text',
+    'has_resource', 'get_resources', 'get_resource', 'get_binary', 'get_text', 'registered_datas',
     'MISSING',
     '__version__'
     ]
@@ -489,18 +504,31 @@ def compile_qrc(filename="resource_man_compiled_resources.qrc", output=None, rcc
         args = [rcc, filename, '-o', output]
         is_py = not output.endswith('.rcc')
         is_pyqt = 'pyrcc' in rcc
-        is_pyside = not is_pyqt
+        is_old_pyside = 'pyside-rcc' in rcc
+        is_pyside = not is_pyqt and not is_old_pyside
 
-        if is_py and is_pyside:  # If .py file and PySide you need "-g python" arguments
-            args.extend(['-g', 'python'])
-        elif not is_py and is_pyside:
-            # .rcc binary file for pyside
-            args.append('-binary')
-        elif not is_py and is_pyqt:
+        if is_pyside:  # Pyside2+
+            # If .py file and PySide2+ you need "-g python" arguments
+            if is_py:
+                args.extend(['-g', 'python'])
+            else:
+                # .rcc binary file for pyside
+                args.append('-binary')
+        elif is_old_pyside:
+            # .rcc binary file for PySide is not supported
+            if not is_py:
+                args[3] = output = os.path.splitext(output)[0] + '.py'  # PySide rcc does not support rcc binary
+
+            # Need to identify the python version
+            if is_py2:
+                args.append('-py2')
+            else:
+                args.append('-py3')
+        elif is_pyqt and not is_py:
             # .rcc binary file for PyQt is not supported
             args[3] = output = os.path.splitext(output)[0] + '.py'  # PyQT rcc does not support rcc binary
 
-        success = subprocess.run(args, stdout=sys.stdout, stderr=sys.stderr).returncode == 0
+        success = run(args, stdout=sys.stdout, stderr=sys.stderr).returncode == 0
         if success and is_py and use_qtpy:
             compiled_py_to_qtpy(output)
 
