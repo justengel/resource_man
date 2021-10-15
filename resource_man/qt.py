@@ -73,9 +73,9 @@ class _ResourceExt(Resource):
 
     def __eq__(self, other):
         if isinstance(other, str):
-            return os.path.normpath(other) == os.path.normpath(self.qt_name) or \
-                   os.path.normpath(other) == os.path.normpath(self.alias) or \
-                   os.path.normpath(other) == os.path.normpath(self.package_path)
+            return other == self.qt_name or \
+                   other == self.alias or \
+                   other.replace('\\', '/') == self.package_path
         return super().__eq__(other)
 
 

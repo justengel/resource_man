@@ -200,8 +200,8 @@ class Resource:
 
     def __eq__(self, other):
         if isinstance(other, str):
-            return os.path.normpath(other) == os.path.normpath(self.alias) or \
-                   os.path.normpath(other) == os.path.normpath(self.package_path)
+            return other == self.alias or \
+                   other.replace('\\', '/') == self.package_path
         return super().__eq__(other)
 
     def __repr__(self):
