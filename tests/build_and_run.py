@@ -150,9 +150,10 @@ if __name__ == '__main__':
     # with compile_qt_qrc(MAIN_MODULE, run_two_cmds=True, delete_compiled=False):
     #     pass
 
-    with compile_qt_qrc(MAIN_MODULE, run_two_cmds=True, delete_compiled=True, use_import=True):
-        with pyinstaller_exe(main_module=MAIN_MODULE, run_hook=True, delete_build=True):
-            run_exe(main_module=MAIN_MODULE, delete_dist=True)
+    if sys.version_info >= (3, 5):
+        with compile_qt_qrc(MAIN_MODULE, run_two_cmds=True, delete_compiled=True, use_import=True):
+            with pyinstaller_exe(main_module=MAIN_MODULE, run_hook=True, delete_build=True):
+                run_exe(main_module=MAIN_MODULE, delete_dist=True)
 
     with compile_qt_qrc(MAIN_MODULE, run_two_cmds=True, delete_compiled=True, use_import=True):
         with cxfreeze_exe(main_module=MAIN_MODULE):
