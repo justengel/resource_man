@@ -1,5 +1,4 @@
 import os
-import subprocess
 import sys
 import shutil
 import time
@@ -55,6 +54,7 @@ def compile_qt_qrc(main_module, run_two_cmds=True, delete_compiled=True, use_imp
             yield
         finally:
             if delete_compiled:
+                time.sleep(1)
                 try: os.remove('resource_man_compiled_resources.qrc')
                 except: pass
                 try: os.remove('resource_man_compiled_resources.py')
@@ -74,6 +74,7 @@ def compile_qt_qrc(main_module, run_two_cmds=True, delete_compiled=True, use_imp
             yield
         finally:
             if delete_compiled:
+                time.sleep(1)
                 try: os.remove('resource_man_compiled_resources.qrc')
                 except: pass
                 try: os.remove('resource_man_compiled_resources.py')
@@ -102,6 +103,7 @@ def pyinstaller_exe(main_module, run_hook=True, delete_build=True, **kwargs):
         yield
     finally:
         if delete_build:
+            time.sleep(1)
             try: shutil.rmtree('build')
             except: pass
             try: os.remove('{0}.spec'.format(main_name))

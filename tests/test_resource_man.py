@@ -170,6 +170,17 @@ def test_register_directory():
     assert 'check_lib/check_sub/document-new.png' in directory
     assert 'check_lib/check_sub/rsc2.txt' in directory
 
+    rsc.clear()
+    directory = rsc.register_directory('check_lib', 'check_directory1', extensions=['.txt', '.png'])
+    assert len(directory) > 0
+    assert isinstance(directory[0], rsc.Resource)
+    assert 'check_lib/check_directory1/edit-cut.png' in directory
+
+    directory = rsc.register_directory('check_lib', 'check_directory1/check_director2', extensions=['.txt', '.png'])
+    assert len(directory) > 0
+    assert isinstance(directory[0], rsc.Resource)
+    assert 'check_lib/check_directory1/check_directory2/edit-cut.png' in directory
+
 
 if __name__ == '__main__':
     test_files()

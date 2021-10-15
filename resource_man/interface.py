@@ -85,7 +85,11 @@ class Resource:
         try:
             return is_resource(self.package, self.name)
         except (AttributeError, TypeError, ValueError):
-            return False
+            try:
+                f = self.files()
+                return f.exists() and not f.is_dir()
+            except (AttributeError, TypeError, ValueError):
+                return False
 
     def files(self):
         try:
@@ -108,6 +112,11 @@ class Resource:
 
     def contents(self):
         try:
+            if '/' in self.name or '\\' in self.name:
+                return [f.name for f in self.files().parent.iterdir()]
+        except (ValueError, TypeError, Exception):
+            pass
+        try:
             return contents(self.package)
         except (ValueError, TypeError, Exception):
             return []
@@ -124,6 +133,11 @@ class Resource:
             return self.data
         except (AttributeError, TypeError, OSError, Exception) as err:
             error = err
+            try:
+                self.data = self.files().read_bytes()
+                return self.data
+            except (AttributeError, TypeError, OSError, Exception):
+                pass
         raise ResourceNotAvailable(str(error))
 
     read_binary = read_bytes
@@ -140,6 +154,11 @@ class Resource:
             return self.data
         except (AttributeError, TypeError, OSError, Exception) as err:
             error = err
+            try:
+                self.data = self.files().read_text(encoding, errors)
+                return self.data
+            except (AttributeError, TypeError, OSError, Exception):
+                pass
         raise ResourceNotAvailable(str(error))
 
     def _enter_context(self):
@@ -299,7 +318,7 @@ class ResourceManagerInterface(object):
         self.append(rsc)
         return rsc
 
-    def register_directory(self, package, extensions=None, exclude=None, **kwargs):
+    def register_directory(self, package, directory=None, extensions=None, exclude=None, **kwargs):
         """Register all items in a directory.
 
         Note:
@@ -307,6 +326,7 @@ class ResourceManagerInterface(object):
 
         Args:
             package (str): Package name ('check_lib.check_sub')
+            directory (str)[None]: Additional directory path.
             extensions (list/str)[None]: List of extensions to register (".csv", ".txt", "" for "LICENSE" with no ext).
                 If None register all.
             exclude (list/str)[None]: List of filenames to exclude.
@@ -322,14 +342,24 @@ class ResourceManagerInterface(object):
         elif isinstance(exclude, str):
             exclude = [exclude]
 
-        directory = []
-        for name in contents(package):
-            name = str(name)
-            ext = os.path.splitext(name)[-1]
-            if (name not in exclude) and (extensions is None or ext in extensions):
-                directory.append(self.register(package, name, **kwargs))
+        folder = []
+        if directory:
+            pkg = files(package).joinpath(directory)
+            for f in pkg.iterdir():
+                name = str(f.name)
+                ext = os.path.splitext(name)[-1]
+                if not f.is_dir() and (name not in exclude) and (extensions is None or ext in extensions):
+                    folder.append(self.register(package, os.path.join(directory, name).replace('\\', '/'), **kwargs))
+        else:
+            pkg = files(package)
+            for name in contents(package):
+                name = str(name)
+                ext = os.path.splitext(name)[-1]
+                f = pkg.joinpath(name)
+                if not f.is_dir() and (name not in exclude) and (extensions is None or ext in extensions):
+                    folder.append(self.register(package, name, **kwargs))
 
-        return directory
+        return folder
 
     def unregister(self, rsc=None, name=None, alias=None):
         """Unregister a resource.
@@ -553,7 +583,7 @@ def register_data(data, package, name, alias=MISSING, **kwargs):
     return get_global_manager().register_data(data, package, name, alias=alias, **kwargs)
 
 
-def register_directory(package, extensions=None, exclude=None, **kwargs):
+def register_directory(package, directory=None, extensions=None, exclude=None, **kwargs):
     """Register all items in a directory.
 
     Note:
@@ -561,6 +591,7 @@ def register_directory(package, extensions=None, exclude=None, **kwargs):
 
     Args:
         package (str): Package name ('check_lib.check_sub')
+        directory (str)[None]: Additional directory path.
         extensions (list/str)[None]: List of extensions to register (".csv", ".txt", "" for "LICENSE" with no ext).
             If None register all.
         exclude (list/str)[None]: List of filenames to exclude.
@@ -569,7 +600,8 @@ def register_directory(package, extensions=None, exclude=None, **kwargs):
     Returns:
         directory (list): List of Resource objects that were registered.
     """
-    return get_global_manager().register_directory(package, extensions=extensions, exclude=exclude, **kwargs)
+    return get_global_manager().register_directory(package, directory=directory, extensions=extensions,
+                                                   exclude=exclude, **kwargs)
 
 
 def unregister(rsc=None, name=None, alias=None):

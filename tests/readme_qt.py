@@ -13,6 +13,9 @@ DOCUMENT_NEW = rsc.register('check_lib.check_sub', 'document-new.png')  # QFile 
 
 DOC_NEW_DATA = rsc.register_data(DOCUMENT_NEW.read_bytes(), 'readme_qt', 'data_resource', 'data_resource')
 
+DIRECTORY1 = rsc.register_directory('check_lib', 'check_directory1')
+DIRECTORY2 = rsc.register_directory('check_lib', 'check_directory1/check_directory2')
+
 
 if __name__ == '__main__':
     app = QtWidgets.QApplication([])
@@ -120,6 +123,24 @@ if __name__ == '__main__':
         svg = rsc.QSvgWidget("document-save-as")
         svg.setFixedSize(32, 32)
         hlay.addWidget(svg)
+    except (rsc.ResourceNotAvailable, OSError, TypeError) as err:
+        pass
+
+    # Show Directory items
+    hlay2 = QtWidgets.QHBoxLayout()
+    widg.layout().addLayout(hlay2)
+    try:
+        for r in DIRECTORY1:
+            lbl = QtWidgets.QLabel()
+            lbl.setPixmap(rsc.QPixmap(r).scaledToHeight(32))
+            hlay2.addWidget(lbl)
+    except (rsc.ResourceNotAvailable, OSError, TypeError) as err:
+        pass
+    try:
+        for r in DIRECTORY2:
+            lbl = QtWidgets.QLabel()
+            lbl.setPixmap(rsc.QPixmap(r).scaledToHeight(32))
+            hlay2.addWidget(lbl)
     except (rsc.ResourceNotAvailable, OSError, TypeError) as err:
         pass
 
