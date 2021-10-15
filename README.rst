@@ -15,6 +15,7 @@ Standard Resource Functions
 Custom Helpers
   * clear - clear all registered resources.
   * register - Register a package and basename.
+  * register_data - Register a plain data resource that does not have a file.
   * register_directory - Register the contents of a package directory.
   * unregister - Remove a resource from the registration.
   * has_resource - Return if the given resource, package_path, or alias has a registered resource.
@@ -22,6 +23,42 @@ Custom Helpers
   * get_resource - Return the Resource object for the given alias, fallback alias, or default value.
   * get_binary - Return the binary data read from the found resource.
   * get_text - Return the text data read from the found resource.
+
+Notes:
+
+    I added support for subdirectories which importlib.resources specifically does not support.
+    I believe this was a terrible mistake. If I am using any library with css, html, or js there will naturally be
+    a couple of subdirectories. If I include these projects as sub-repositories I do not want to add __init__.py files
+    to everything.
+
+.. code-block:: python
+
+    # mylib/run.py
+    # File Structure:
+    #     mylib/
+    #         __init__.py
+    #         run.py
+    #         subrepo/
+    #             html/
+    #                 index.html
+    #             css/
+    #                 my.css
+    #             js/
+    #                 my.js
+    #             edit-cut.png
+    #             README.md
+    import resource_man
+
+
+    RESOURCES = [
+        resource_man.register('mylib', 'subrepo/html/index.html')
+        resource_man.register('mylib', 'subrepo/css/my.css')
+        resource_man.register('mylib', 'subrepo/js/my.js')
+        resource_man.register('mylib', 'subrepo/edit-cut.png')
+        ]
+    # RESOURCES = resource_man.register_directory('mylib', 'subrepo', recursive=True,
+    #                                             exclude=['README.md'],  # exclude from directory ('subrepo')
+    #                                             extensions=['.png', '.html', '.js', '.css'])
 
 
 Resource Man Example

@@ -16,6 +16,7 @@ DOC_NEW_DATA = rsc.register_data(DOCUMENT_NEW.read_bytes(), 'readme_qt', 'data_r
 DIRECTORY1 = rsc.register_directory('check_lib', 'check_directory1')
 DIRECTORY2 = rsc.register_directory('check_lib', 'check_directory1/check_directory2')
 
+SUBDIRS = rsc.register_directory('check_lib', 'check_directory1', recursive=True)
 
 if __name__ == '__main__':
     app = QtWidgets.QApplication([])
@@ -108,7 +109,7 @@ if __name__ == '__main__':
         invalid = rsc.QSvgWidget("check_lib/check_sub/document-new.png")
         w = QtWidgets.QWidget()
         w.setLayout(QtWidgets.QVBoxLayout())
-        w.layout().addWidget(QtWidgets.QLabel('QSvgWidget NO PNG'))
+        w.layout().addWidget(QtWidgets.QLabel('QSvgWidget\nNO PNG'))
         w.layout().addWidget(invalid)
         hlay.addWidget(w)
     except (rsc.ResourceNotAvailable, OSError, TypeError) as err:
@@ -138,6 +139,13 @@ if __name__ == '__main__':
         pass
     try:
         for r in DIRECTORY2:
+            lbl = QtWidgets.QLabel()
+            lbl.setPixmap(rsc.QPixmap(r).scaledToHeight(32))
+            hlay2.addWidget(lbl)
+    except (rsc.ResourceNotAvailable, OSError, TypeError) as err:
+        pass
+    try:
+        for r in SUBDIRS:
             lbl = QtWidgets.QLabel()
             lbl.setPixmap(rsc.QPixmap(r).scaledToHeight(32))
             hlay2.addWidget(lbl)

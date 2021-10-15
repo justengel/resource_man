@@ -318,7 +318,7 @@ class ResourceManagerInterface(object):
         self.append(rsc)
         return rsc
 
-    def register_directory(self, package, directory=None, extensions=None, exclude=None, **kwargs):
+    def register_directory(self, package, directory='', recursive=False, extensions=None, exclude=None, **kwargs):
         """Register all items in a directory.
 
         Note:
@@ -326,7 +326,8 @@ class ResourceManagerInterface(object):
 
         Args:
             package (str): Package name ('check_lib.check_sub')
-            directory (str)[None]: Additional directory path.
+            directory (str)['']: Additional directory path.
+            recursive (bool)[False]: If True iterate through subdirectories and find all files.
             extensions (list/str)[None]: List of extensions to register (".csv", ".txt", "" for "LICENSE" with no ext).
                 If None register all.
             exclude (list/str)[None]: List of filenames to exclude.
@@ -343,15 +344,19 @@ class ResourceManagerInterface(object):
             exclude = [exclude]
 
         folder = []
-        if directory:
-            pkg = files(package).joinpath(directory)
-            for f in pkg.iterdir():
-                name = str(f.name)
+        pkg = files(package).joinpath(directory or '')
+        if directory or recursive:
+            if recursive:
+                iter_dir = pkg.glob('**/*')
+            else:
+                iter_dir = pkg.iterdir()
+            for f in iter_dir:
+                name = str(f.relative_to(pkg))
                 ext = os.path.splitext(name)[-1]
                 if not f.is_dir() and (name not in exclude) and (extensions is None or ext in extensions):
-                    folder.append(self.register(package, os.path.join(directory, name).replace('\\', '/'), **kwargs))
+                    path = os.path.join(directory, name).replace('\\', '/')  # Normalize path with the directory
+                    folder.append(self.register(package, path, **kwargs))
         else:
-            pkg = files(package)
             for name in contents(package):
                 name = str(name)
                 ext = os.path.splitext(name)[-1]
@@ -583,7 +588,7 @@ def register_data(data, package, name, alias=MISSING, **kwargs):
     return get_global_manager().register_data(data, package, name, alias=alias, **kwargs)
 
 
-def register_directory(package, directory=None, extensions=None, exclude=None, **kwargs):
+def register_directory(package, directory=None, recursive=False, extensions=None, exclude=None, **kwargs):
     """Register all items in a directory.
 
     Note:
@@ -592,6 +597,7 @@ def register_directory(package, directory=None, extensions=None, exclude=None, *
     Args:
         package (str): Package name ('check_lib.check_sub')
         directory (str)[None]: Additional directory path.
+        recursive (bool)[False]: If True iterate through subdirectories and find all files.
         extensions (list/str)[None]: List of extensions to register (".csv", ".txt", "" for "LICENSE" with no ext).
             If None register all.
         exclude (list/str)[None]: List of filenames to exclude.
@@ -600,8 +606,8 @@ def register_directory(package, directory=None, extensions=None, exclude=None, *
     Returns:
         directory (list): List of Resource objects that were registered.
     """
-    return get_global_manager().register_directory(package, directory=directory, extensions=extensions,
-                                                   exclude=exclude, **kwargs)
+    return get_global_manager().register_directory(package, directory=directory, recursive=recursive,
+                                                   extensions=extensions, exclude=exclude, **kwargs)
 
 
 def unregister(rsc=None, name=None, alias=None):
