@@ -88,15 +88,6 @@ class Resource:
             return False
 
     def files(self):
-        # try:
-        #     package_path = self.package_path
-        #     exe_package_path = os.path.join(os.path.dirname(sys.executable), package_path)
-        #     if os.path.exists(package_path):
-        #         return Traversable(package_path)
-        #     elif os.path.exists(exe_package_path):
-        #         return Traversable(exe_package_path)
-        # except (AttributeError, TypeError, ValueError, Exception):
-        #     pass
         try:
             return files(self.package).joinpath(self.name)
         except (AttributeError, TypeError, ValueError):
@@ -209,7 +200,8 @@ class Resource:
 
     def __eq__(self, other):
         if isinstance(other, str):
-            return other == self.alias or other == self.package_path
+            return os.path.normpath(other) == os.path.normpath(self.alias) or \
+                   os.path.normpath(other) == os.path.normpath(self.package_path)
         return super().__eq__(other)
 
     def __repr__(self):
