@@ -342,9 +342,10 @@ class ResourceManagerInterface(object):
             exclude = []
         elif isinstance(exclude, str):
             exclude = [exclude]
+        directory = directory or ''
 
         folder = []
-        pkg = files(package).joinpath(directory or '')
+        pkg = files(package).joinpath(directory)
         if directory or recursive:
             if recursive:
                 iter_dir = pkg.glob('**/*')
@@ -588,7 +589,7 @@ def register_data(data, package, name, alias=MISSING, **kwargs):
     return get_global_manager().register_data(data, package, name, alias=alias, **kwargs)
 
 
-def register_directory(package, directory=None, recursive=False, extensions=None, exclude=None, **kwargs):
+def register_directory(package, directory='', recursive=False, extensions=None, exclude=None, **kwargs):
     """Register all items in a directory.
 
     Note:
@@ -596,7 +597,7 @@ def register_directory(package, directory=None, recursive=False, extensions=None
 
     Args:
         package (str): Package name ('check_lib.check_sub')
-        directory (str)[None]: Additional directory path.
+        directory (str)['']: Additional directory path.
         recursive (bool)[False]: If True iterate through subdirectories and find all files.
         extensions (list/str)[None]: List of extensions to register (".csv", ".txt", "" for "LICENSE" with no ext).
             If None register all.
