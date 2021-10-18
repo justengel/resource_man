@@ -71,12 +71,14 @@ class _ResourceExt(Resource):
             return ':/{prefix}/{alias}'.format(prefix=prefix, alias=self.alias)
         return ':/' + self.alias
 
+    orig_eq = Resource.orig_eq = Resource.__eq__  # NEED Resource.orig_eq to be set as well.
+
     def __eq__(self, other):
         if isinstance(other, str):
             return other == self.qt_name or \
                    other == self.alias or \
                    other.replace('\\', '/') == self.package_path
-        return super().__eq__(other)
+        return self.orig_eq(other)
 
 
 # Override Resource methods and properties to work like ResourceExt
