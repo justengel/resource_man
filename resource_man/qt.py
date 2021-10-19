@@ -157,7 +157,8 @@ class QFile(QtCore_QFile):
             has_resource = self._resource and (QtCore_QFile.exists(self._resource.qt_name) or
                                                self._resource.is_resource())
             has_filename = self._filename and QtCore_QFile.exists(self._filename)
-            return has_resource or has_filename or super(QFile, self).exists()
+            return has_resource or has_filename or \
+                   QtCore_QFile.exists(QtCore_QFile.fileName(self))  # super() will crash. Check the filename
         return type(self)(name).exists()
 
     def basename(self):
