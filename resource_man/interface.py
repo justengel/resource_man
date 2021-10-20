@@ -423,7 +423,7 @@ class ResourceManagerInterface(object):
         # Try finding the identifier
         try:
             return self[rsc]
-        except KeyError:
+        except (KeyError, ResourceNotAvailable):
             pass
 
         # Try fallback
@@ -431,7 +431,7 @@ class ResourceManagerInterface(object):
             if isinstance(fallback, Resource):
                 return fallback
             return self[fallback]
-        except KeyError:
+        except (KeyError, ResourceNotAvailable):
             pass
 
         # Check default
