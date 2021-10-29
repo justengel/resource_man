@@ -35,12 +35,13 @@ __all__ = [
 EXCLUDE_EXT = SOURCE_SUFFIXES + ['.pyc', '.pyd']
 
 
-def find_datas(package, exclude_ext=None, **kwargs):
+def find_datas(package, exclude_ext=None, use_dest_dirs=True, **kwargs):
     """Collect data files for pyinstaller.
 
     Args:
         package (types.ModuleType/str/Traversable): Top level package module or module name.
         exclude_ext (list)[None]: List of extensions to not include in the pyinstaller data.
+        use_dest_dirs (bool)[True]: If True the destination will be a directory. If False the dest will be the filename.
 
     Returns:
         datas (list): List of (abs file path, rel install path). This will also include subdirectories.
@@ -78,8 +79,12 @@ def find_datas(package, exclude_ext=None, **kwargs):
                             filename = str(filename.resolve())
                         except (AttributeError, Exception):
                             pass
+
                         relpath = os.path.join(pkg_name, os.path.relpath(filename, toplvl_filename))
-                        data = (filename, os.path.dirname(relpath))
+                        if use_dest_dirs:
+                            relpath = os.path.dirname(relpath)
+
+                        data = (filename, relpath)
                         if data not in datas:
                             datas.append(data)
 
