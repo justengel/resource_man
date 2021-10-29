@@ -50,7 +50,7 @@ class Resource:
         for k, v in kwargs.items():
             try:
                 setattr(self, k, v)
-            except (AttributeError, TypeError, ValueError):
+            except (AttributeError, TypeError, ValueError, Exception):
                 pass
 
     @property
@@ -84,17 +84,17 @@ class Resource:
         """
         try:
             return is_resource(self.package, self.name)
-        except (AttributeError, TypeError, ValueError):
+        except (AttributeError, TypeError, ValueError, Exception):
             try:
                 f = self.files()
                 return f.exists() and not f.is_dir()
-            except (AttributeError, TypeError, ValueError):
+            except (AttributeError, TypeError, ValueError, Exception):
                 return False
 
     def files(self):
         try:
             return files(self.package).joinpath(self.name)
-        except (AttributeError, TypeError, ValueError):
+        except (AttributeError, TypeError, ValueError, Exception):
             return Traversable(self.package_path)
 
     @contextlib.contextmanager
