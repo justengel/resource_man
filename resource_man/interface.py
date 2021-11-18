@@ -14,7 +14,7 @@ except (ImportError, Exception):
 __all__ = [
     'ResourceNotAvailable', 'Resource', 'ResourceManagerInterface', 'ResourceManager',
     'get_global_manager', 'set_global_manager', 'temp_manager', 'add_manager', 'remove_manager',
-    'clear', 'register', 'register_data', 'register_directory', 'unregister',
+    'clear', 'register_resource', 'register', 'register_data', 'register_directory', 'unregister',
     'has_resource', 'get_resources', 'get_resource', 'get_binary', 'get_text', 'registered_datas',
     'MISSING'
     ]
@@ -282,6 +282,18 @@ class ResourceManagerInterface(object):
         except (TypeError, ValueError, Exception):
             pass
 
+    def register_resource(self, rsc, **kwargs):
+        """Register a resource.
+
+        Args:
+            rsc (Resource): Resource object to register and access later.
+
+        Returns:
+            rsc (Resource): Resource object that was registered
+        """
+        self.append(rsc)
+        return rsc
+
     def register(self, package, name, alias=MISSING, **kwargs):
         """Register a resource. You can optionally have an alias name identifier.
         When using the alias the last resource registered with the same alias will be used.
@@ -297,8 +309,7 @@ class ResourceManagerInterface(object):
         if 'manager' not in kwargs:
             kwargs['manager'] = self
         rsc = self.RESOURCE_CLASS(package, name, alias=alias, **kwargs)
-        self.append(rsc)
-        return rsc
+        return self.register_resource(rsc)
 
     def register_data(self, data, package, name, alias=MISSING, **kwargs):
         """Register a plain data resource.
@@ -315,8 +326,7 @@ class ResourceManagerInterface(object):
         if 'manager' not in kwargs:
             kwargs['manager'] = self
         rsc = self.RESOURCE_CLASS(package=package, name=name, alias=alias, data=data, **kwargs)
-        self.append(rsc)
-        return rsc
+        return self.register_resource(rsc)
 
     def register_directory(self, package, directory='', recursive=False, extensions=None, exclude=None, **kwargs):
         """Register all items in a directory.
@@ -609,6 +619,18 @@ def register_directory(package, directory='', recursive=False, extensions=None, 
     """
     return get_global_manager().register_directory(package, directory=directory, recursive=recursive,
                                                    extensions=extensions, exclude=exclude, **kwargs)
+
+
+def register_resource(rsc, **kwargs):
+    """Register a resource.
+
+    Args:
+        rsc (Resource): Resource object to register and access later.
+
+    Returns:
+        rsc (Resource): Resource object that was registered
+    """
+    return get_global_manager().register_resource(rsc, **kwargs)
 
 
 def unregister(rsc=None, name=None, alias=None):

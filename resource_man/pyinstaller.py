@@ -13,7 +13,7 @@ from resource_man.importlib_interface import \
 from resource_man.interface import \
     ResourceNotAvailable, Resource, ResourceManagerInterface, ResourceManager, \
     get_global_manager, set_global_manager, temp_manager, add_manager, remove_manager, clear, \
-    register, register_data, register_directory, unregister, has_resource, \
+    register_resource, register, register_data, register_directory, unregister, has_resource, \
     get_resources, get_resource, get_binary, get_text, registered_datas, \
     MISSING
 
@@ -25,7 +25,7 @@ __all__ = [
 
     'ResourceNotAvailable', 'Resource', 'ResourceManagerInterface', 'ResourceManager',
     'get_global_manager', 'set_global_manager', 'temp_manager', 'add_manager', 'remove_manager',
-    'clear', 'register', 'register_data', 'register_directory', 'unregister',
+    'clear', 'register_resource', 'register', 'register_data', 'register_directory', 'unregister',
     'has_resource', 'get_resources', 'get_resource', 'get_binary', 'get_text', 'registered_datas',
     'MISSING',
     '__version__'
