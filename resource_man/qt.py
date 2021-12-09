@@ -537,7 +537,7 @@ def compile_qrc(filename="resource_man_compiled_resources.qrc", output=None, rcc
         if success and is_py and use_qtpy:
             compiled_py_to_qtpy(output)
 
-        return success
+        return output
 
 
 def compiled_py_to_qtpy(filename):
