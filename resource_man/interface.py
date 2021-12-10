@@ -254,6 +254,8 @@ class ResourceManagerInterface(object):
         raise NotImplementedError
 
     def append(self, resource):
+        if hasattr(resource, 'manager') and resource.manager is None:
+            resource.manager = self
         raise NotImplementedError
 
     def pop(self, key, **kwargs):
@@ -524,7 +526,11 @@ class ResourceManager(list, ResourceManagerInterface):
         # If not found add the resource to the list.
         self.append(value)
 
-    append = list.append
+    def append(self, resource):
+        if hasattr(resource, 'manager') and resource.manager is None:
+            resource.manager = self
+        return list.append(self, resource)
+
     pop = list.pop
 
 
