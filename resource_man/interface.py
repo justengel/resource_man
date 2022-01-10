@@ -56,7 +56,14 @@ class Resource:
     @property
     def package_path(self):
         """Return the package path."""
-        return '/'.join((self.package.replace('.', '/'), self.name))
+        pkg = self.package.replace('.', '/')
+        name = self.name
+        if pkg and name:
+            return '/'.join((pkg, self.name))
+        elif pkg:
+            return pkg
+        else:
+            return name
 
     @property
     def alias(self):

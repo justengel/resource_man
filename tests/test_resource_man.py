@@ -190,6 +190,20 @@ def test_register_directory():
     assert 'check_lib/check_directory1/edit-cut.png' not in directory
 
 
+def test_raw_filename():
+    import os
+    import resource_man as rsc
+
+    cwd = os.getcwd()
+    this_path = os.path.dirname(__file__)
+    try:
+        if cwd != this_path:
+            os.chdir(this_path)
+        fname = rsc.Resource('', 'test_lib/check_lib/check_sub/edit-cut.png')
+        assert os.path.exists(fname)
+    finally:
+        os.chdir(cwd)
+
 
 if __name__ == '__main__':
     test_files()
@@ -200,5 +214,6 @@ if __name__ == '__main__':
     test_is_resource()
     test_register()
     test_register_directory()
+    test_raw_filename()
 
     print('All tests passed successfully!')
