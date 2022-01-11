@@ -129,50 +129,72 @@ class Resource:
             return []
 
     def read_bytes(self):
+        error = None
         if isinstance(self.data, bytes):
             return self.data
         elif isinstance(self.data, str):
             return self.data.encode('utf-8')
-
-        error = None
-        try:
-            self.data = read_binary(self.package, self.name)
-            return self.data
-        except (AttributeError, TypeError, OSError, Exception) as err:
-            error = err
+        elif self.data is not None:
             try:
-                self.data = self.files().read_bytes()
+                return bytes(self.data)
+            except (AttributeError, TypeError, OSError, Exception) as err:
+                error = err
+                try:
+                    return str(self.data).encode('utf-8')
+                except (AttributeError, TypeError, OSError, Exception):
+                    pass
+        else:
+            try:
+                self.data = read_binary(self.package, self.name)
                 return self.data
-            except (AttributeError, TypeError, OSError, Exception):
-                pass
+            except (AttributeError, TypeError, OSError, Exception) as err:
+                error = err
+                try:
+                    self.data = self.files().read_bytes()
+                    return self.data
+                except (AttributeError, TypeError, OSError, Exception):
+                    pass
         raise ResourceNotAvailable(str(error))
 
     read_binary = read_bytes
 
     def read_text(self, encoding='utf-8', errors='strict'):
+        error = None
         if isinstance(self.data, str):
             return self.data
         elif isinstance(self.data, bytes):
             return self.data.decode(encoding, errors)
-
-        error = None
-        try:
-            self.data = read_text(self.package, self.name, encoding, errors)
-            return self.data
-        except (AttributeError, TypeError, OSError, Exception) as err:
-            error = err
+        elif self.data is not None:
             try:
-                self.data = self.files().read_text(encoding, errors)
+                return bytes(self.data)
+            except (AttributeError, TypeError, OSError, Exception) as err:
+                error = err
+                try:
+                    return str(self.data).encode('utf-8')
+                except (AttributeError, TypeError, OSError, Exception):
+                    pass
+        else:
+            try:
+                self.data = read_text(self.package, self.name, encoding, errors)
                 return self.data
-            except (AttributeError, TypeError, OSError, Exception):
-                pass
+            except (AttributeError, TypeError, OSError, Exception) as err:
+                error = err
+                try:
+                    self.data = self.files().read_text(encoding, errors)
+                    return self.data
+                except (AttributeError, TypeError, OSError, Exception):
+                    pass
         raise ResourceNotAvailable(str(error))
 
     def _enter_context(self):
         """Use "as_file" to enter the with context block for the life of the application in order to get the filepath.
         """
-        self._context = self.as_file()
-        self._context_obj = self._context.__enter__()
+        if self.data is not None:
+            self._context_obj = self.data
+        else:
+            self._context = self.as_file()
+            self._context_obj = self._context.__enter__()
+
         try:
             self._context_obj = self._context_obj.resolve()  # Get proper path capitalization
         except (AttributeError, Exception):
