@@ -282,6 +282,12 @@ class ResourceManagerInterface(object):
 
     def add_manager(self, man):
         """Add a manager to help with saving all managers."""
+        if man in self.managers:
+            # Remove so the manager will be at the end.
+            try:
+                self.managers.remove(man)
+            except (AttributeError, TypeError, ValueError, Exception):
+                pass
         self.managers.append(man)
 
     def remove_manager(self, man):
@@ -442,7 +448,7 @@ class ResourceManagerInterface(object):
         # Try finding the identifier
         try:
             return self[rsc]
-        except (KeyError, ResourceNotAvailable):
+        except (KeyError, IndexError, ResourceNotAvailable, Exception):
             pass
 
         # Try fallback
@@ -450,7 +456,7 @@ class ResourceManagerInterface(object):
             if isinstance(fallback, Resource):
                 return fallback
             return self[fallback]
-        except (KeyError, ResourceNotAvailable):
+        except (KeyError, IndexError, ResourceNotAvailable, Exception):
             pass
 
         # Check default
@@ -508,11 +514,17 @@ class ResourceManager(list, ResourceManagerInterface):
         if isinstance(item, int):
             return list.__getitem__(self, item)
 
+        # Check self first
+        for rsc in reversed(self):
+            if rsc == item:
+                return rsc
+
         # Search through all linked managers
-        for man in [self] + self.managers:
-            for rsc in reversed(man):
-                if rsc == item:
-                    return rsc
+        for man in reversed(self.managers):
+            try:
+                return man[item]
+            except (KeyError, IndexError, ResourceNotAvailable, Exception):
+                pass
 
         raise ResourceNotAvailable("The requested resource was not found!")
 
