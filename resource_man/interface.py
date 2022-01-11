@@ -189,7 +189,7 @@ class Resource:
     def _enter_context(self):
         """Use "as_file" to enter the with context block for the life of the application in order to get the filepath.
         """
-        if self.data is not None:
+        if self.data is not None and not isinstance(self.data, (bytes, str)):
             self._context_obj = self.data
         else:
             self._context = self.as_file()
@@ -545,7 +545,7 @@ class ResourceManager(list, ResourceManagerInterface):
             except (KeyError, IndexError, ResourceNotAvailable, Exception):
                 pass
 
-        raise ResourceNotAvailable("The requested resource was not found!")
+        raise ResourceNotAvailable("The requested resource \"{}\" was not found!".format(item))
 
     def __setitem__(self, key, value):
         if isinstance(key, int):
