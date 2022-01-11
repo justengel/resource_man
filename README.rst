@@ -169,7 +169,7 @@ I believe this function to be more useful than PyInstallers built in tool.
     from resource_man.pyinstaller import find_datas, registered_datas
 
     # datas = find_datas('mylib')  # Will also find resources in sub packages
-    datas = registered_datas()  # Return a list of registered resources
+    datas = registered_datas(use_dest_dirs=False)  # Return a list of registered resources
 
 
 Use the pyinstaller helper with pylibimp to import all resources for your project.
@@ -189,7 +189,7 @@ Use the pyinstaller helper with pylibimp to import all resources for your projec
         import_module(main_module, reset_modules=True)
 
         # Get registered datas
-        datas = registered_datas()
+        datas = registered_datas(use_dest_dirs=False)
         args = []
         for data in datas:
             args.extend(['--add-data', os.pathsep.join(data)])

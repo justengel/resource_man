@@ -19,7 +19,7 @@ def test_registered_datas():
     rsc = register('check_lib', 'rsc.txt', ...)
     rsc2 = register('check_lib.check_sub', 'rsc2.txt', 'rsc2.txt')
 
-    datas = registered_datas()
+    datas = registered_datas(use_dest_dirs=False)
 
     assert (os.path.relpath(str(rsc.files())), rsc.package_path) in datas
     assert (os.path.relpath(str(rsc2.files())), rsc2.package_path) in datas
