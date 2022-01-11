@@ -254,10 +254,7 @@ class Resource:
 
     def __repr__(self):
         kwargs = {'cls': self.__class__.__name__, 'package': self.package, 'name': self.name, 'alias': self.alias}
-        if self.raw_alias:
-            return '{cls}(package={package}, name={name}, alias={alias})'.format(**kwargs)
-        else:
-            return '{cls}(package={package}, name={name})'.format(**kwargs)
+        return '{cls}(package={package}, name={name}, alias={alias})'.format(**kwargs)
 
 
 class ResourceManagerInterface(object):
