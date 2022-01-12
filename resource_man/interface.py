@@ -527,7 +527,17 @@ class ResourceManager(list, ResourceManagerInterface):
         ResourceManagerInterface.__init__(self, *resources, **kwargs)
 
     __iter__ = list.__iter__
-    __contains__ = list.__contains__
+
+    def __contains__(self, item):
+        if list.__contains__(self, item):
+            return True
+
+        # Search through all linked managers
+        for man in reversed(self.managers):
+            if item in man:
+                return True
+
+        return False
 
     def __getitem__(self, item):
         if isinstance(item, int):
