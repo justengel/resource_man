@@ -453,7 +453,7 @@ class ResourceManagerInterface(object):
 
         Args:
             include_managers (bool)[True]: If True include sub manager items.
-            allow_duplicates (bool)[True]: If True return all resources and do not check for duplicate aliases.
+            allow_duplicates (bool)[False]: If True return all resources and do not check for duplicate aliases.
         """
         rs = []
         for rsc in reversed(self):
