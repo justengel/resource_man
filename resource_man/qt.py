@@ -344,7 +344,9 @@ class QPixmap(QtGui_QPixmap):
 class QIcon(QtGui_QIcon):
     """Special QIcon that can load from resource_man values."""
     def __new__(cls, *args, **kwargs):
-        return super(QIcon, cls).__new__(cls)
+        obj = super(QIcon, cls).__new__(cls)
+        obj.is_valid = False
+        return obj
 
     def __init__(self, *args, **kwargs):
         is_valid = False
@@ -364,6 +366,9 @@ class QIcon(QtGui_QIcon):
 
         super(QIcon, self).__init__(*args, **kwargs)
         self.is_valid = is_valid
+
+    def isNull(self, *args, **kwargs):
+        return not self.is_valid and super().isNull()
 
     @dynamicmethod
     def fromTheme(self, name, fallback=None):
