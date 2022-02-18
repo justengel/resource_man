@@ -725,12 +725,13 @@ def has_resource(rsc=None, name=None, alias=None):
     return get_global_manager().has_resource(rsc=rsc, name=name, alias=alias)
 
 
-def get_resources():
+def get_resources(include_managers=True, allow_duplicates=False, rsc_list=None):
     """Return a list of registered resources.
 
     If multiple resources have the same alias the last one will be used.
     """
-    return get_global_manager().get_resources()
+    return get_global_manager().get_resources(include_managers=include_managers, allow_duplicates=allow_duplicates,
+                                              rsc_list=rsc_list)
 
 
 def get_resource(rsc, fallback=None, default=MISSING):
@@ -777,7 +778,8 @@ def get_text(rsc, fallback=None, default=MISSING, encoding='utf-8', errors='stri
     return get_global_manager().get_text(rsc, fallback=fallback, default=default, encoding=encoding, errors=errors)
 
 
-def registered_datas(resource_manager=None, use_dest_dirs=True):
+def registered_datas(resource_manager=None, use_dest_dirs=True,
+                     include_managers=True, allow_duplicates=False, rsc_list=None):
     """Return a list of datas that were registered.
 
     Args:
@@ -793,7 +795,8 @@ def registered_datas(resource_manager=None, use_dest_dirs=True):
     datas = []
 
     for man in [resource_manager] + resource_manager.managers:
-        for resource in man.get_resources():
+        for resource in man.get_resources(include_managers=include_managers,
+                                          allow_duplicates=allow_duplicates, rsc_list=rsc_list):
             if resource.is_resource():
                 with resource.as_file() as rsc_file:
                     package_path = str(resource.package_path)
