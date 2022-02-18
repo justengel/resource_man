@@ -446,7 +446,7 @@ class ResourceManagerInterface(object):
 
         return rsc in self
 
-    def get_resources(self, include_managers=True, allow_duplicates=False):
+    def get_resources(self, include_managers=True, allow_duplicates=False, rsc_list=None):
         """Return a list of registered resources.
 
         If multiple resources have the same alias the last one will be used.
@@ -454,18 +454,20 @@ class ResourceManagerInterface(object):
         Args:
             include_managers (bool)[True]: If True include sub manager items.
             allow_duplicates (bool)[False]: If True return all resources and do not check for duplicate aliases.
+            rsc_list (list)[None]: Current list of resources to add to.
         """
-        rs = []
+        if rsc_list is None:
+            rsc_list = []
+
         for rsc in reversed(self):
-            if allow_duplicates or rsc not in rs:
-                rs.append(rsc)
+            if allow_duplicates or rsc not in rsc_list:
+                rsc_list.append(rsc)
 
         if include_managers and getattr(self, 'managers', None):
             for man in reversed(self.managers):
-                rs.extend([rsc for rsc in man.get_resources(include_managers=True, allow_duplicates=allow_duplicates)
-                           if allow_duplicates or rsc not in rs])
+                man.get_resources(include_managers=True, allow_duplicates=allow_duplicates, rsc_list=rsc_list)
 
-        return rs
+        return rsc_list
 
     def get_resource(self, rsc, fallback=None, default=MISSING):
         """Return the found Resource object from the given resource, fallback, or default value.
