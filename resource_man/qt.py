@@ -8,6 +8,7 @@ from collections import OrderedDict
 from dynamicmethod import dynamicmethod
 from qtpy import API_NAME, QtCore, QtGui, QtSvg
 
+
 try:
     from subprocess import run
 except (ImportError, Exception):
@@ -382,7 +383,29 @@ class QIcon(QtGui_QIcon):
         return icn
 
 
-class QSvgWidget(QtSvg.QSvgWidget):
+QtSvgWidgets = None
+if not hasattr(QtSvg, "QSvgWidget"):
+    try:
+        if API_NAME == 'PyQt6':
+            from PyQt6 import QtSvgWidgets
+        elif API_NAME == 'PyQt5':
+            from PyQt5 import QtSvgWidgets
+        elif API_NAME == 'PySide6':
+            from PySide6 import QtSvgWidgets
+        elif API_NAME == 'PySide2':
+            from PySide2 import QtSvgWidgets
+        ORIG_QSvgWidget = QtSvgWidgets.QSvgWidget
+    except (ImportError, Exception):
+        class ORIG_QSvgWidget:
+            def __new__(cls, *args, **kwargs):
+                raise EnvironmentError('Could not load the proper SVG Widget. '
+                                       'This version of Qt may not be supported')
+
+else:
+    ORIG_QSvgWidget = QtSvg.QSvgWidget
+
+
+class QSvgWidget(ORIG_QSvgWidget):
     """QSvgWidget with resource_man support."""
     def __new__(cls, *args, **kwargs):
         return super(QSvgWidget, cls).__new__(cls)

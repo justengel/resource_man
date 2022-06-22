@@ -1,3 +1,5 @@
+import sys
+sys.path.append('test_lib')
 
 
 def test_files():

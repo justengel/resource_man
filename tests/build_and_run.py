@@ -15,6 +15,7 @@ except (ImportError, Exception):
             raise RuntimeError('The program failed to run properly')
         return proc
 
+python = sys.executable
 
 SHELL = {'shell': True, 'stdout': sys.stdout, 'stderr': sys.stderr,
          'check': True, }
@@ -26,13 +27,13 @@ def check_installed(**kwargs):
     try:
         import pylibimp
     except (ImportError, Exception):
-        run(['python', '-m', 'pip', 'install', 'pylibimp'], **SHELL)
+        run([python, '-m', 'pip', 'install', 'pylibimp'], **SHELL)
 
     # install sub package
     try:
         import check_lib.check_sub
     except (ImportError, Exception):
-        run(['python', '-m', 'pip', 'install', '-e', './test_lib'], **SHELL)
+        run([python, '-m', 'pip', 'install', '-e', './test_lib'], **SHELL)
 
 
 @contextlib.contextmanager
@@ -64,12 +65,12 @@ def compile_qt_qrc(main_module, run_two_cmds=True, delete_compiled=True, use_imp
             # Compile resources
             if run_two_cmds:
                 print('Create .qrc')
-                run(['python', '-m', 'resource_man.qt', 'create', main_module], **SHELL)
+                run([python, '-m', 'resource_man.qt', 'create', main_module], **SHELL)
                 print('Compile .qrc')
-                run(['python', '-m', 'resource_man.qt', 'compile'], **SHELL)
+                run([python, '-m', 'resource_man.qt', 'compile'], **SHELL)
             else:
                 print('Create and Compile .qrc')
-                run(['python', '-m', 'resource_man.qt', 'run', main_module], **SHELL)
+                run([python, '-m', 'resource_man.qt', 'run', main_module], **SHELL)
 
             yield
         finally:
@@ -116,7 +117,7 @@ def cxfreeze_exe(main_module, **kwargs):
 
     # Python 3.4
     if sys.version_info < (3, 5):
-        args = ['python', 'freeze.py', 'build']
+        args = [python, 'freeze.py', 'build']
     else:
         args = ['cxfreeze', main_module, '--target-dir', 'dist/{0}'.format(main_name),
                 '--excludes', 'tcl,ttk,tkinter', ]
